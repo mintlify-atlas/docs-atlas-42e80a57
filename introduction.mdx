@@ -1,0 +1,173 @@
+---
+title: Introduction to Meshery
+description: The cloud native manager for Kubernetes-based infrastructure and applications
+icon: rocket
+---
+
+<img
+  className="block dark:hidden"
+  src="https://raw.githubusercontent.com/meshery/meshery/master/.github/assets/images/readme/meshery-logo-dark-text-side.svg"
+  alt="Meshery Logo"
+  width="400"
+/>
+<img
+  className="hidden dark:block"
+  src="https://raw.githubusercontent.com/meshery/meshery/master/.github/assets/images/readme/meshery-logo-light-text-side.svg"
+  alt="Meshery Logo"
+  width="400"
+/>
+
+# Welcome to Meshery
+
+Meshery is a self-service engineering platform and the open source, cloud native manager that enables the design and management of all Kubernetes-based infrastructure and applications. As a CNCF project, Meshery offers visual and collaborative GitOps, freeing you from the chains of YAML while managing Kubernetes multi-cluster deployments.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="bolt" href="/quickstart" color="#00B39F">
+    Get Meshery up and running in minutes with our quick start guide
+  </Card>
+  <Card title="Installation" icon="download" href="/installation" color="#00B39F">
+    Detailed installation instructions for all supported platforms
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/essentials/architecture" color="#00B39F">
+    Understand Meshery's components and how they work together
+  </Card>
+  <Card title="Integrations" icon="puzzle-piece" href="https://meshery.io/integrations" color="#00B39F">
+    Explore 300+ cloud native integrations
+  </Card>
+</CardGroup>
+
+## What is Meshery?
+
+Meshery provides a single pane of glass to manage multiple Kubernetes clusters across any infrastructure, including various cloud providers. It enables consistent configuration, operation, and observability across your entire Kubernetes landscape.
+
+<img
+  src="https://raw.githubusercontent.com/meshery/meshery/master/.github/assets/images/readme/meshery-dashboard-hero-image.png"
+  alt="Meshery Dashboard"
+  className="rounded-lg"
+/>
+
+## Key Capabilities
+
+### Infrastructure Lifecycle Management
+
+Meshery manages the configuration, deployment, and operation of your cloud services and Kubernetes clusters while supporting hundreds of different types of cloud native infrastructure integrations.
+
+<CardGroup cols={2}>
+  <Card title="Multi-Cluster Management" icon="layer-group">
+    Manage multiple Kubernetes clusters across any cloud or on-premises environment from a unified interface
+  </Card>
+  <Card title="300+ Integrations" icon="plug">
+    Connect with service meshes, monitoring tools, CI/CD pipelines, and cloud native technologies
+  </Card>
+  <Card title="Visual Design" icon="palette">
+    Use Kanvas to visually design and manage infrastructure with drag-and-drop components
+  </Card>
+  <Card title="GitOps" icon="code-branch">
+    Collaborative, version-controlled infrastructure management with Git integration
+  </Card>
+</CardGroup>
+
+### Workspaces: Your Team's Collaboration Hub
+
+<Note>
+Workspaces serve as the central point of collaboration for you and your teams, providing organized access control to environments and their resources.
+</Note>
+
+Workspaces let you organize your work similarly to Google Drive for cloud native projects. They make it easier to manage, share, and work with a collection of resources as a group.
+
+### Performance Management
+
+Meshery offers load generation and performance characterization to help you assess and optimize the performance of your applications and infrastructure.
+
+<CardGroup cols={3}>
+  <Card title="Load Testing" icon="gauge-high">
+    Multiple load generators including Fortio, Wrk2, and Nighthawk
+  </Card>
+  <Card title="Performance Profiles" icon="chart-line">
+    Track historical performance of your workloads across versions
+  </Card>
+  <Card title="SMP Specification" icon="file-contract">
+    Standards-based performance measurement using Cloud Native Performance spec
+  </Card>
+</CardGroup>
+
+### Platform Engineering with Extensibility
+
+<Info>
+Extend Meshery as your self-service engineering platform using gRPC adapters, hot-loadable React packages, Golang plugins, and REST/GraphQL APIs.
+</Info>
+
+The extensive set of extension points in Meshery make it ideal as the foundation of your internal developer platform:
+
+- **Adapters**: gRPC services for service mesh and infrastructure integrations
+- **Providers**: Authentication and preference management plugins
+- **UI Extensions**: Hot-loadable React components and provider-specific interfaces
+- **GraphQL Subscriptions**: Real-time event streaming and state updates
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card title="Context-Aware Policies" icon="shield-check">
+    Built-in OPA (Open Policy Agent) integration for enforcing configuration best practices from code to Kubernetes
+  </Card>
+  <Card title="Dry-Run Deployments" icon="vial">
+    Validate configurations and preview changes before applying to live clusters
+  </Card>
+  <Card title="Design Catalog" icon="book-open">
+    Access curated design templates filled with configuration best practices
+  </Card>
+  <Card title="Multi-Tenancy" icon="users">
+    Robust capabilities for managing multiple tenants with granular role-based access controls
+  </Card>
+</CardGroup>
+
+## Cloud Native Computing Foundation Project
+
+<div style={{textAlign: 'center', margin: '2rem 0'}}>
+  <img
+    src="https://raw.githubusercontent.com/meshery/meshery/master/.github/assets/images/readme/cncf-black.svg"
+    alt="CNCF Logo"
+    width="200"
+    className="block dark:hidden"
+  />
+  <img
+    src="https://raw.githubusercontent.com/meshery/meshery/master/.github/assets/images/readme/cncf-white.svg"
+    alt="CNCF Logo"
+    width="200"
+    className="hidden dark:block"
+  />
+</div>
+
+Meshery is a Cloud Native Computing Foundation (CNCF) project, ensuring community-driven development, vendor neutrality, and alignment with cloud native best practices.
+
+## Try Meshery Today
+
+<CardGroup cols={2}>
+  <Card title="Cloud Native Playground" icon="play" href="https://play.meshery.io">
+    Try Meshery in your browser without installation
+  </Card>
+  <Card title="Kanvas Designer" icon="pen-nib" href="https://kanvas.new">
+    Open the Meshery Kanvas extension directly in your browser
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<Steps>
+  <Step title="Quick Start">
+    Follow our [quick start guide](/quickstart) to install Meshery in minutes
+  </Step>
+  <Step title="Connect Your Cluster">
+    Connect your first Kubernetes cluster to Meshery
+  </Step>
+  <Step title="Explore Integrations">
+    Browse and deploy from 300+ cloud native integrations
+  </Step>
+  <Step title="Join the Community">
+    Connect with the Meshery community on [Slack](https://slack.meshery.io)
+  </Step>
+</Steps>
+
+<Info>
+**Need Help?** Join our community on [Slack](https://slack.meshery.io) or check out the [discussion forum](https://meshery.io/community#discussion-forums) to get support from Meshery maintainers and users.
+</Info>

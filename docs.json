@@ -1,122 +1,186 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Meshery",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#00B39F",
+    "light": "#00D3B5",
+    "dark": "#00876B"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/meshery/meshery"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/meshery/meshery",
+      "x": "https://x.com/mesheryio",
+      "slack": "https://slack.meshery.io"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/workspaces",
+              "concepts/environments",
+              "concepts/connections",
+              "concepts/designs",
+              "concepts/models"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Features",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "features/visual-designer",
+              "features/kanvas",
+              "features/multi-cluster-management",
+              "features/gitops",
+              "features/performance-testing",
+              "features/catalog"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Guides",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "guides/infrastructure-management",
+              "guides/design-patterns",
+              "guides/multi-cluster-setup",
+              "guides/integrations",
+              "guides/policy-engine",
+              "guides/collaboration"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/overview",
+              "integrations/service-meshes",
+              "integrations/kubernetes",
+              "integrations/cloud-providers",
+              "integrations/prometheus-grafana"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "CLI Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Getting Started",
             "pages": [
-              "api-reference/introduction"
+              "cli/overview",
+              "cli/installation"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Commands",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "cli/system",
+              "cli/design",
+              "cli/model",
+              "cli/components",
+              "cli/relationships",
+              "cli/connections",
+              "cli/environments",
+              "cli/workspaces",
+              "cli/perf",
+              "cli/registry"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "REST API",
+            "pages": [
+              "api/rest/workspaces",
+              "api/rest/environments",
+              "api/rest/connections",
+              "api/rest/designs",
+              "api/rest/components",
+              "api/rest/models"
+            ]
+          },
+          {
+            "group": "GraphQL API",
+            "pages": [
+              "api/graphql/overview",
+              "api/graphql/queries",
+              "api/graphql/mutations",
+              "api/graphql/subscriptions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Extensions",
+        "groups": [
+          {
+            "group": "Extensibility",
+            "pages": [
+              "extensions/overview",
+              "extensions/adapters",
+              "extensions/providers",
+              "extensions/ui-plugins"
+            ]
+          },
+          {
+            "group": "Operator",
+            "pages": [
+              "extensions/operator/overview",
+              "extensions/operator/meshsync",
+              "extensions/operator/broker"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "contributing/overview",
+              "contributing/development-setup",
+              "contributing/code-style"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "contributing/server",
+              "contributing/ui",
+              "contributing/cli",
+              "contributing/testing"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

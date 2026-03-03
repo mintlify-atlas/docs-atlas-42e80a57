@@ -1,0 +1,651 @@
+---
+title: Server Development
+description: Contribute to Meshery Server, the Go-based backend that powers Meshery's REST and GraphQL APIs.
+---
+
+Meshery Server is the core backend component written in Go. It handles REST and GraphQL APIs, Kubernetes cluster management, adapter orchestration, database operations, and event streaming.
+
+## Architecture Overview
+
+Meshery Server is composed of several key components:
+
+- **REST API** – Built with Gorilla Mux; handles HTTP endpoints
+- **GraphQL API** – Built with gqlgen; provides real-time subscriptions
+- **Database** – PostgreSQL for persistent storage
+- **Message Broker** – NATS for event streaming
+- **Provider Plugins** – gRPC/HTTP interfaces for authentication and sync
+- **Kubernetes Client** – Manages connections to Kubernetes clusters
+- **Adapters** – gRPC clients for service mesh integrations
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Meshery Server (Go)                            │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────┐ ┌────────────┐ │
+│  │  REST API   │  │  GraphQL API │  │ PostgreSQL │ │   NATS     │ │
+│  │  (Gorilla)  │  │   (gqlgen)   │  │     DB     │ │  Messaging │ │
+│  └─────────────┘  └──────────────┘  └────────────┘ └────────────┘ │
+│  ┌──────────────────────────────────────────────────────────────┐ │
+│  │           Provider Plugins (gRPC/Remote Providers)           │ │
+│  └──────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Repository Structure
+
+The server code is located in the `/server` directory:
+
+```
+server/
+├── cmd/                  # Application entrypoint (main.go, error.go)
+├── handlers/             # HTTP request handlers
+├── models/               # Data models and business logic
+│   ├── meshmodel/       # MeshModel definitions
+│   └── provider.go      # Provider interface
+├── internal/             # Internal packages
+│   ├── graphql/         # GraphQL schema and resolvers
+│   └── store/           # Database operations
+├── helpers/              # Utility functions and error codes
+├── meshes/               # Adapter gRPC protocol (meshops.proto)
+└── integration-tests/    # Integration tests
+```
+
+## Development Workflow
+
+### Running the Server Locally
+
+**Basic server (port 9081):**
+
+```bash
+make server
+```
+
+The server will be available at `http://localhost:9081`.
+
+**Run with local Remote Provider:**
+
+```bash
+make server-local
+```
+
+This points the server to a locally-running Remote Provider for testing authentication.
+
+**Run without Kubernetes component generation:**
+
+```bash
+make server-skip-compgen
+```
+
+Use this to skip the automatic generation and registration of Kubernetes models on startup.
+
+**Run without operator deployment:**
+
+```bash
+make server-without-operator
+```
+
+Disables automatic deployment of the Meshery Operator to connected Kubernetes clusters.
+
+**Run with adapters:**
+
+```bash
+make server-with-adapters
+```
+
+**Run in playground mode:**
+
+```bash
+make server-playground
+```
+
+### Building the Server
+
+**Build server binary:**
+
+```bash
+make build-server
+```
+
+This creates a `main` binary in the project root.
+
+**Run the binary:**
+
+```bash
+make server-binary
+```
+
+**Run with local provider:**
+
+```bash
+make server-binary-local
+```
+
+### Environment Variables
+
+Configure the server with environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `PORT` | Server listening port | `9081` |
+| `DEBUG` | Enable debug logging | `false` |
+| `PROVIDER_BASE_URLS` | Remote provider URLs | Production URLs |
+| `ADAPTER_URLS` | Comma-separated adapter URLs | - |
+| `KEYS_PATH` | Path to encryption keys | - |
+| `SKIP_COMP_GEN` | Skip Kubernetes component generation | `false` |
+| `DISABLE_OPERATOR` | Disable operator deployment | `false` |
+| `PLAYGROUND` | Enable playground mode | `false` |
+| `REGISTER_STATIC_K8S` | Register static Kubernetes models | `true` |
+| `OTEL_CONFIG` | OpenTelemetry config path | - |
+
+**Example:**
+
+```bash
+export DEBUG=true
+export SKIP_COMP_GEN=true
+make server
+```
+
+## Code Style and Linting
+
+### Linting with golangci-lint
+
+All Go code must pass golangci-lint checks:
+
+```bash
+make golangci
+```
+
+**Configuration:** `.github/.golangci.yml`
+
+```yaml
+version: "2"
+run:
+  timeout: 5m
+
+linters:
+  disable:
+    - errcheck
+  exclusions:
+    paths:
+      - server/handlers/doc.go
+      - server/models/meshmodel/core/register.go
+```
+
+### Formatting
+
+Format your code with `gofmt` and `goimports`:
+
+```bash
+gofmt -w .
+goimports -w .
+```
+
+### Error Handling
+
+Meshery uses MeshKit's error utilities for consistent error handling.
+
+**Define errors in `server/helpers`:**
+
+```go
+import (
+    "github.com/meshery/meshkit/errors"
+)
+
+var (
+    ErrInvalidKubeConfigCode = "1234"
+)
+
+func ErrInvalidKubeConfig(err error) error {
+    return errors.New(
+        ErrInvalidKubeConfigCode,
+        errors.Alert,
+        []string{"Invalid kubeconfig"},
+        []string{err.Error()},
+        []string{"Kubeconfig format is invalid"},
+        []string{"Ensure kubeconfig follows standard format"},
+    )
+}
+```
+
+**Analyze and update error codes:**
+
+```bash
+make error
+```
+
+This runs MeshKit's error utility to analyze error codes in `./server/helpers`.
+
+**Update error codes only:**
+
+```bash
+make error-util
+```
+
+## Testing
+
+### Unit Tests
+
+Unit tests are placed in `*_test.go` files alongside the code they test.
+
+**Run all tests:**
+
+```bash
+cd server
+go test ./...
+```
+
+**Run only short tests (skip integration tests):**
+
+```bash
+go test --short ./...
+```
+
+**Run with coverage:**
+
+```bash
+go test -cover ./...
+```
+
+**Run specific package:**
+
+```bash
+go test ./handlers
+```
+
+### Integration Tests
+
+Integration tests are located in `server/integration-tests/`.
+
+**MeshSync Integration Tests:**
+
+1. **Check dependencies:**
+
+```bash
+make server-integration-tests-meshsync-check-dependencies
+```
+
+Verifies that Docker, kind, kubectl, and helm are installed.
+
+2. **Setup test environment:**
+
+```bash
+make server-integration-tests-meshsync-setup
+```
+
+Creates a kind cluster, deploys the Meshery Operator, and sets up NATS.
+
+3. **Run tests:**
+
+```bash
+make server-integration-tests-meshsync-run
+```
+
+4. **Cleanup:**
+
+```bash
+make server-integration-tests-meshsync-cleanup
+```
+
+**Run full test cycle:**
+
+```bash
+make server-integration-tests-meshsync
+```
+
+This runs: docker-build → setup → run → cleanup.
+
+## Working with APIs
+
+### REST API
+
+REST endpoints are defined in `server/handlers/`.
+
+**Example handler:**
+
+```go
+func (h *Handler) GetWorkspaces(w http.ResponseWriter, req *http.Request) {
+    workspaces, err := h.provider.GetWorkspaces(req)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(workspaces)
+}
+```
+
+**Building Swagger/OpenAPI specs:**
+
+```bash
+make swagger-build
+```
+
+**Serve Swagger UI:**
+
+```bash
+make swagger
+```
+
+**Build Swagger docs for documentation site:**
+
+```bash
+make swagger-docs-build
+```
+
+### GraphQL API
+
+GraphQL schema and resolvers are in `server/internal/graphql/`.
+
+**Schema location:** `server/internal/graphql/schema.graphql`
+
+**Example schema:**
+
+```graphql
+type Workspace {
+  id: ID!
+  name: String!
+  description: String
+  owner: User!
+}
+
+type Query {
+  workspaces: [Workspace!]!
+  workspace(id: ID!): Workspace
+}
+
+type Mutation {
+  createWorkspace(name: String!, description: String): Workspace!
+  deleteWorkspace(id: ID!): Boolean!
+}
+```
+
+**Regenerate GraphQL code after schema changes:**
+
+```bash
+make graphql-build
+```
+
+This uses gqlgen to generate resolvers and types.
+
+**Build GraphQL documentation:**
+
+```bash
+make graphql-docs-build
+```
+
+## Working with Kubernetes
+
+### Kubernetes Client
+
+Meshery Server uses client-go to interact with Kubernetes clusters.
+
+**Example: Get cluster version:**
+
+```go
+import (
+    "k8s.io/client-go/kubernetes"
+    "k8s.io/client-go/rest"
+)
+
+func getClusterVersion(config *rest.Config) (string, error) {
+    clientset, err := kubernetes.NewForConfig(config)
+    if err != nil {
+        return "", err
+    }
+    
+    version, err := clientset.Discovery().ServerVersion()
+    if err != nil {
+        return "", err
+    }
+    
+    return version.String(), nil
+}
+```
+
+### MeshModel
+
+MeshModel defines Kubernetes resources and their relationships.
+
+**Location:** `server/models/meshmodel/`
+
+**Registering new models:**
+
+Models are automatically generated from Kubernetes CRDs and registered on startup.
+
+**Skip model generation during development:**
+
+```bash
+export SKIP_COMP_GEN=true
+make server
+```
+
+## Working with Providers
+
+Providers handle authentication, user preferences, and data synchronization.
+
+**Provider interface:** `server/models/provider.go`
+
+**Local Provider:**
+
+Built-in provider with local storage (no authentication).
+
+**Remote Provider:**
+
+External providers (e.g., Meshery Cloud) with authentication and cloud sync.
+
+**Switch providers during development:**
+
+```bash
+# Use local provider
+export PROVIDER=None
+make server
+
+# Use remote provider
+export PROVIDER=Layer5
+export PROVIDER_BASE_URLS=https://meshery.layer5.io
+make server
+```
+
+## Working with Adapters
+
+Adapters are gRPC services that integrate with service meshes and infrastructure.
+
+**Protocol definition:** `server/meshes/meshops.proto`
+
+**Rebuild protocol buffers:**
+
+```bash
+make proto-build
+```
+
+This generates Go code from the protobuf definition.
+
+**Configure adapter URLs:**
+
+```bash
+export ADAPTER_URLS="localhost:10000,localhost:10001"
+make server
+```
+
+## Database Operations
+
+Meshery Server uses PostgreSQL for persistent storage.
+
+**Database operations:** `server/internal/store/`
+
+**Example query:**
+
+```go
+import (
+    "github.com/meshery/meshkit/database"
+)
+
+func getWorkspaceByID(db database.Handler, id string) (*Workspace, error) {
+    var workspace Workspace
+    err := db.First(&workspace, "id = ?", id).Error
+    if err != nil {
+        return nil, err
+    }
+    return &workspace, nil
+}
+```
+
+## Event Streaming with NATS
+
+Meshery uses NATS for event streaming and pub/sub messaging.
+
+**Topics:**
+- `meshsync.request` – MeshSync discovery requests
+- `meshery.broker` – Broker events
+
+**Example: Subscribe to events:**
+
+```go
+import (
+    "github.com/nats-io/nats.go"
+)
+
+func subscribeToMeshSyncEvents(nc *nats.Conn) {
+    nc.Subscribe("meshsync.request", func(msg *nats.Msg) {
+        // Handle MeshSync event
+        log.Printf("Received: %s", string(msg.Data))
+    })
+}
+```
+
+## Common Tasks
+
+### Adding a New REST Endpoint
+
+1. **Add handler in `server/handlers/`:**
+
+```go
+func (h *Handler) GetWorkspace(w http.ResponseWriter, req *http.Request) {
+    // Implementation
+}
+```
+
+2. **Register route in router:**
+
+```go
+router.HandleFunc("/api/workspace/{id}", handler.GetWorkspace).Methods("GET")
+```
+
+3. **Update Swagger annotations:**
+
+```go
+// swagger:route GET /api/workspace/{id} workspace getWorkspace
+// Get workspace by ID
+```
+
+4. **Rebuild Swagger:**
+
+```bash
+make swagger-build
+```
+
+### Adding a New GraphQL Query
+
+1. **Update schema in `server/internal/graphql/schema.graphql`:**
+
+```graphql
+type Query {
+  workspace(id: ID!): Workspace
+}
+```
+
+2. **Regenerate code:**
+
+```bash
+make graphql-build
+```
+
+3. **Implement resolver:**
+
+```go
+func (r *queryResolver) Workspace(ctx context.Context, id string) (*model.Workspace, error) {
+    // Implementation
+}
+```
+
+### Adding a New Error Code
+
+1. **Define error in `server/helpers/`:**
+
+```go
+var ErrWorkspaceNotFoundCode = "1500"
+
+func ErrWorkspaceNotFound(id string) error {
+    return errors.New(
+        ErrWorkspaceNotFoundCode,
+        errors.Alert,
+        []string{"Workspace not found"},
+        []string{fmt.Sprintf("Workspace with ID %s not found", id)},
+        []string{"Workspace may have been deleted"},
+        []string{"Verify workspace ID"},
+    )
+}
+```
+
+2. **Update error codes:**
+
+```bash
+make error
+```
+
+## Debugging
+
+### Enable Debug Logging
+
+```bash
+export DEBUG=true
+make server
+```
+
+### Use Delve Debugger
+
+```bash
+go install github.com/go-delve/delve/cmd/dlv@latest
+
+cd server/cmd
+dlv debug
+```
+
+### Check Server Health
+
+```bash
+curl http://localhost:9081/api/system/version
+```
+
+## Performance Testing
+
+Meshery includes wrk2 and Nighthawk for performance testing.
+
+**Setup wrk2:**
+
+```bash
+make wrk2-setup
+```
+
+**Setup Nighthawk:**
+
+```bash
+make nighthawk-setup
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="vial" href="/contributing/testing">
+    Learn how to test server changes
+  </Card>
+  <Card title="Code Style" icon="code" href="/contributing/code-style">
+    Review Go code style guidelines
+  </Card>
+  <Card title="UI Development" icon="palette" href="/contributing/ui">
+    Contribute to the frontend
+  </Card>
+  <Card title="CLI Development" icon="terminal" href="/contributing/cli">
+    Contribute to mesheryctl
+  </Card>
+</CardGroup>

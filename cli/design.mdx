@@ -1,0 +1,380 @@
+---
+title: mesheryctl design
+description: Manage cloud native infrastructure designs
+---
+
+The `design` command manages cloud native infrastructure designs, allowing you to create, apply, view, and share infrastructure configurations.
+
+## Synopsis
+
+```bash
+mesheryctl design [subcommand] [flags]
+```
+
+## Subcommands
+
+- `apply` - Deploy a design to your infrastructure
+- `delete` - Remove a design from the system
+- `view` - Display design details
+- `list` - List all available designs
+- `import` - Import designs from files or URLs
+- `export` - Export designs to files
+- `onboard` - Onboard designs to the catalog
+- `offboard` - Remove designs from the catalog
+
+## Global Flags
+
+<ParamField path="--token" type="string">
+  Path to token file. Defaults to current context token. Short form: `-t`
+</ParamField>
+
+## apply
+
+Deploy a design file to your infrastructure.
+
+### Usage
+
+```bash
+mesheryctl design apply [design-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--file" type="string" required>
+  Path to design file or URL. Short form: `-f`
+</ParamField>
+
+<ParamField path="--skip-save" type="boolean" default="false">
+  Skip saving the design to the database before applying
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Apply from File
+# Apply a local design file
+mesheryctl design apply -f ./mydesign.yaml
+
+# Apply from URL
+mesheryctl design apply -f https://raw.githubusercontent.com/meshery/meshery/master/samples/bookinfo.yaml
+```
+
+```bash Apply Saved Design
+# Apply a design by name
+mesheryctl design apply bookinfo-app
+
+# Apply without saving
+mesheryctl design apply -f design.yaml --skip-save
+```
+</CodeGroup>
+
+<Note>
+When applying by name, if multiple designs match, you'll be prompted to select one.
+</Note>
+
+### Sample Output
+
+```
+Applying design bookinfo-app
+design applied
+Deployment successful: 4 resources created
+```
+
+## delete
+
+Remove a design from Meshery.
+
+### Usage
+
+```bash
+mesheryctl design delete [design-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--file" type="string">
+  Path to design file to delete. Short form: `-f`
+</ParamField>
+
+### Examples
+
+```bash
+# Delete by name
+mesheryctl design delete bookinfo-app
+
+# Delete from file
+mesheryctl design delete -f design.yaml
+```
+
+## view
+
+Display detailed information about a design.
+
+### Usage
+
+```bash
+mesheryctl design view [design-name | design-id] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="yaml">
+  Output format: `yaml`, `json`. Short form: `-o`
+</ParamField>
+
+<ParamField path="--all" type="boolean" default="false">
+  View all designs. Short form: `-a`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash View by Name
+# View design details in YAML
+mesheryctl design view bookinfo
+
+# View in JSON format
+mesheryctl design view bookinfo -o json
+```
+
+```bash View by ID
+# View specific design by ID
+mesheryctl design view 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+```
+</CodeGroup>
+
+### Sample Output
+
+```yaml
+name: bookinfo-app
+version: 1.0.0
+services:
+  productpage:
+    type: Deployment
+    namespace: default
+    settings:
+      replicas: 1
+  details:
+    type: Service
+    namespace: default
+```
+
+## list
+
+List all available designs.
+
+### Usage
+
+```bash
+mesheryctl design list [flags]
+```
+
+### Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display only the total count of designs
+</ParamField>
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of designs per page
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List All
+# List all designs
+mesheryctl design list
+
+# Show only count
+mesheryctl design list --count
+```
+
+```bash Pagination
+# List first page (25 designs)
+mesheryctl design list --page 1
+
+# List with custom page size
+mesheryctl design list --page 2 --page-size 50
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+DESIGN NAME           TYPE         CREATED              
+bookinfo-app          kubernetes   2024-03-01 10:30:00  
+nginx-deployment      kubernetes   2024-03-02 14:22:00  
+istio-demo            service-mesh 2024-03-03 09:15:00  
+
+Total: 3 designs
+```
+
+## import
+
+Import designs from files or URLs.
+
+### Usage
+
+```bash
+mesheryctl design import [flags]
+```
+
+### Flags
+
+<ParamField path="--file" type="string" required>
+  Path to design file or URL. Short form: `-f`
+</ParamField>
+
+<ParamField path="--source-type" type="string">
+  Type of design source: `helm`, `docker-compose`, `kubernetes`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Import from File
+# Import a design file
+mesheryctl design import -f ./design.yaml
+
+# Import with source type
+mesheryctl design import -f chart.yaml --source-type helm
+```
+
+```bash Import from URL
+# Import from GitHub
+mesheryctl design import -f https://raw.githubusercontent.com/org/repo/main/design.yaml
+
+# Import Docker Compose
+mesheryctl design import -f docker-compose.yml --source-type docker-compose
+```
+</CodeGroup>
+
+<Note>
+Supported design formats include Kubernetes manifests, Helm charts, Docker Compose files, and Meshery-specific design formats.
+</Note>
+
+## export
+
+Export designs to files.
+
+### Usage
+
+```bash
+mesheryctl design export [design-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="./design.yaml">
+  Output file path. Short form: `-o`
+</ParamField>
+
+<ParamField path="--format" type="string" default="yaml">
+  Export format: `yaml`, `json`
+</ParamField>
+
+### Examples
+
+```bash
+# Export to file
+mesheryctl design export bookinfo -o bookinfo.yaml
+
+# Export as JSON
+mesheryctl design export bookinfo -o bookinfo.json --format json
+```
+
+## onboard
+
+Onboard designs to the public catalog.
+
+### Usage
+
+```bash
+mesheryctl design onboard [design-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--file" type="string">
+  Path to design file to onboard. Short form: `-f`
+</ParamField>
+
+### Examples
+
+```bash
+# Onboard a design to catalog
+mesheryctl design onboard bookinfo
+
+# Onboard from file
+mesheryctl design onboard -f design.yaml
+```
+
+## offboard
+
+Remove designs from the catalog.
+
+### Usage
+
+```bash
+mesheryctl design offboard [design-name]
+```
+
+### Examples
+
+```bash
+# Remove from catalog
+mesheryctl design offboard bookinfo
+```
+
+## Design File Format
+
+Meshery design files use YAML or JSON format:
+
+```yaml
+name: sample-design
+version: 1.0.0
+services:
+  my-service:
+    type: Deployment
+    namespace: default
+    settings:
+      replicas: 3
+      image: nginx:latest
+```
+
+## Troubleshooting
+
+### Design Apply Fails
+
+```bash
+# Validate design syntax first
+mesheryctl design view my-design
+
+# Check logs for detailed errors
+mesheryctl system logs
+```
+
+### Import Errors
+
+```bash
+# Ensure source type is correct
+mesheryctl design import -f myfile.yaml --source-type kubernetes
+
+# Verify file format and syntax
+cat myfile.yaml | yamllint
+```
+
+### Design Not Found
+
+```bash
+# List all available designs
+mesheryctl design list
+
+# Search for design name
+mesheryctl design list | grep my-design
+```

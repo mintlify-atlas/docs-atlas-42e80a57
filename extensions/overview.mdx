@@ -1,0 +1,190 @@
+---
+title: Extensions Overview
+description: Extend Meshery with adapters, providers, and UI plugins
+---
+
+Meshery's extensibility framework enables developers to enhance and customize the platform through multiple extension points. This architecture allows for seamless integration of new service meshes, cloud native infrastructure, custom authentication systems, and UI components.
+
+## Extension Types
+
+Meshery supports four primary extension mechanisms:
+
+### Adapters
+
+Adapters are gRPC-based microservices that integrate specific service meshes and infrastructure platforms with Meshery. Each adapter implements a standardized protocol defined in `meshops.proto`, enabling operations like installation, configuration, validation, and lifecycle management.
+
+**Key Features:**
+- gRPC-based communication
+- Self-registration with Meshery Server
+- Streaming event support
+- Multi-cluster operation support
+
+**Supported Adapters:**
+- Istio, Linkerd, Consul Connect
+- Cilium Service Mesh, Kuma, NGINX Service Mesh
+- AWS App Mesh, Traefik Mesh, Network Service Mesh
+
+[Learn more about creating adapters](/extensions/adapters)
+
+### Provider Plugins
+
+Provider plugins extend Meshery's authentication, storage, and multi-tenancy capabilities. They enable integration with external identity providers, cloud backends, and custom data persistence layers.
+
+**Capabilities:**
+- Remote authentication (OAuth, OIDC, SAML)
+- Centralized configuration storage
+- Performance results persistence
+- Design pattern catalogs
+- Multi-user collaboration
+
+**Provider Types:**
+- **Local Provider**: File-based storage, local authentication
+- **Remote Provider**: Cloud-backed with SSO, team workspaces, and sharing
+
+[Learn more about provider plugins](/extensions/providers)
+
+### UI Extensions
+
+UI extensions allow remote React components to be dynamically loaded into the Meshery interface. These components can add custom navigation items, user preference panels, account management screens, and collaboration features.
+
+**Extension Points:**
+- Navigator menu items
+- User preferences panels
+- Account management pages
+- GraphQL schema extensions
+- Collaborator components
+
+[Learn more about UI plugins](/extensions/ui-plugins)
+
+### Meshery Operator
+
+The Meshery Operator manages the lifecycle of Meshery components within Kubernetes clusters. It deploys and configures MeshSync for cluster discovery and the NATS-based Broker for event streaming.
+
+**Components:**
+- **Meshery Operator**: Kubernetes controller managing CRDs
+- **MeshSync**: Cluster state discovery and synchronization
+- **Meshery Broker**: NATS-based event distribution
+
+[Learn more about Meshery Operator](/extensions/operator/overview)
+
+## Extension Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Meshery UI                                  │
+│  ┌──────────────────┐  ┌──────────────────┐  ┌─────────────────┐  │
+│  │ Remote Component │  │ Provider UI Ext  │  │ Navigator Ext   │  │
+│  │    Loader        │  │                  │  │                 │  │
+│  └──────────────────┘  └──────────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                              │
+                         GraphQL/REST
+                              │
+┌─────────────────────────────────────────────────────────────────────┐
+│                      Meshery Server                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐ │
+│  │   Provider   │  │   Adapter    │  │    Event Handler         │ │
+│  │   Interface  │  │   gRPC Mgr   │  │    (NATS Sub)            │ │
+│  └──────────────┘  └──────────────┘  └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+         │                    │                        │
+    HTTPS/gRPC            gRPC                    NATS
+         │                    │                        │
+┌────────────────┐  ┌──────────────────┐  ┌────────────────────────┐
+│ Remote Provider│  │    Adapters      │  │  Kubernetes Cluster    │
+│                │  │ (Istio, Linkerd, │  │ ┌──────────────────┐   │
+│ • Auth/SSO     │  │  Consul, etc.)   │  │ │ Meshery Operator │   │
+│ • Storage      │  │                  │  │ ├──────────────────┤   │
+│ • Catalog      │  │                  │  │ │   MeshSync       │   │
+│ • Workspaces   │  │                  │  │ ├──────────────────┤   │
+└────────────────┘  └──────────────────┘  │ │ Meshery Broker   │   │
+                                          │ │    (NATS)        │   │
+                                          │ └──────────────────┘   │
+                                          └────────────────────────┘
+```
+
+## Data Flow
+
+1. **User Interaction**: User performs actions in Meshery UI (deploy, configure, validate)
+2. **Server Processing**: Meshery Server receives requests via GraphQL/REST APIs
+3. **Adapter Communication**: Server sends gRPC requests to appropriate adapters
+4. **Cluster Operations**: Adapters execute operations on Kubernetes clusters
+5. **State Discovery**: MeshSync detects cluster state changes
+6. **Event Publishing**: MeshSync publishes events to Meshery Broker (NATS)
+7. **Event Consumption**: Meshery Server subscribes to broker topics and updates database
+8. **Real-time Updates**: UI receives updates via GraphQL subscriptions
+
+## Development Guidelines
+
+### Creating Extensions
+
+All extensions should:
+- Follow the defined interface contracts
+- Implement proper error handling and logging
+- Support graceful degradation
+- Provide health check endpoints
+- Document configuration options
+
+### Best Practices
+
+1. **Versioning**: Use semantic versioning for all extensions
+2. **Compatibility**: Maintain backward compatibility with Meshery Server APIs
+3. **Security**: Never expose credentials or secrets in logs or responses
+4. **Testing**: Implement unit and integration tests
+5. **Documentation**: Provide clear setup and usage instructions
+
+## Environment Variables
+
+Common environment variables for extension configuration:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `PROVIDER_BASE_URLS` | Remote provider URLs | - |
+| `ADAPTER_URLS` | Adapter endpoint URLs | - |
+| `MESHERY_SERVER_CALLBACK_URL` | Server callback URL | `http://localhost:9081` |
+| `SKIP_DOWNLOAD_EXTENSIONS` | Skip provider extension download | `false` |
+| `PROVIDER_CAPABILITIES_FILEPATH` | Local capabilities file path | - |
+
+## Extension Registration
+
+### Adapter Registration
+
+Adapters self-register with Meshery Server on startup by exposing a gRPC endpoint and returning metadata via the `ComponentInfo` RPC:
+
+```go
+rpc ComponentInfo(ComponentInfoRequest) returns(ComponentInfoResponse)
+
+// Returns:
+// - type: "adapter"
+// - name: "istio", "linkerd", etc.
+// - version: Adapter version
+// - git_sha: Build commit
+```
+
+### Provider Registration
+
+Providers are configured in `~/.meshery/config.yaml` and register by exposing a capabilities endpoint:
+
+```yaml
+providers:
+  - provider-type: remote
+    provider-url: https://meshery.layer5.io
+    provider-name: Meshery Cloud
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Build an Adapter" icon="puzzle-piece" href="/extensions/adapters">
+    Create a gRPC adapter for your service mesh
+  </Card>
+  <Card title="Develop a Provider" icon="cloud" href="/extensions/providers">
+    Integrate custom authentication and storage
+  </Card>
+  <Card title="Create UI Extensions" icon="window" href="/extensions/ui-plugins">
+    Build remote React components
+  </Card>
+  <Card title="Deploy Operator" icon="kubernetes" href="/extensions/operator/overview">
+    Install and configure Meshery Operator
+  </Card>
+</CardGroup>

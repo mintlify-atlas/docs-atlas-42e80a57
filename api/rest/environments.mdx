@@ -1,0 +1,507 @@
+---
+title: Environments
+description: REST API endpoints for managing Meshery environments
+---
+
+Environments represent deployment targets in Meshery, such as Kubernetes clusters or cloud provider accounts. They group connections and provide isolation for infrastructure resources.
+
+## List Environments
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:9081/api/environments?orgID=YOUR_ORG_ID&page=0&pagesize=25"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'http://localhost:9081/api/environments?orgID=YOUR_ORG_ID&page=0&pagesize=25',
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+const environments = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:9081/api/environments',
+    headers={'Authorization': f'Bearer {token}'},
+    params={'orgID': 'YOUR_ORG_ID', 'page': 0, 'pagesize': 25}
+)
+environments = response.json()
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/environments`
+
+### Query Parameters
+
+<ParamField query="orgID" type="string" required>
+  Organization ID to retrieve environments for (required for remote providers)
+</ParamField>
+
+<ParamField query="page" type="integer" default="0">
+  Page number for pagination (0-indexed)
+</ParamField>
+
+<ParamField query="pagesize" type="integer" default="20">
+  Number of environments per page
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term for filtering environments by name
+</ParamField>
+
+<ParamField query="order" type="string">
+  Field to order by (e.g., `name`, `created_at`, `updated_at`)
+</ParamField>
+
+<ParamField query="filter" type="string">
+  JSON filter conditions
+</ParamField>
+
+### Response
+
+<ResponseField name="page" type="integer">
+  Current page number
+</ResponseField>
+
+<ResponseField name="page_size" type="integer">
+  Number of items per page
+</ResponseField>
+
+<ResponseField name="total_count" type="integer">
+  Total number of environments
+</ResponseField>
+
+<ResponseField name="environments" type="array">
+  Array of environment objects
+  <Expandable title="Environment Object">
+    <ResponseField name="id" type="string">
+      Unique environment identifier (UUID)
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Environment name
+    </ResponseField>
+    <ResponseField name="description" type="string">
+      Environment description
+    </ResponseField>
+    <ResponseField name="organization_id" type="string">
+      Organization ID that owns this environment
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      Creation timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="updated_at" type="string">
+      Last update timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="owner" type="string">
+      User ID of the environment owner
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example Response:**
+
+```json
+{
+  "page": 0,
+  "page_size": 25,
+  "total_count": 2,
+  "environments": [
+    {
+      "id": "660e8400-e29b-41d4-a716-446655440001",
+      "name": "Production",
+      "description": "Production Kubernetes cluster",
+      "organization_id": "org-123",
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-02-20T14:45:00Z",
+      "owner": "user-uuid"
+    }
+  ]
+}
+```
+
+---
+
+## Get Environment by ID
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:9081/api/environments/{id}?orgID=YOUR_ORG_ID"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/environments/${environmentId}?orgID=YOUR_ORG_ID`,
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+const environment = await response.json();
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/environments/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Environment ID (UUID)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="orgID" type="string">
+  Organization ID (required for remote providers)
+</ParamField>
+
+### Response
+
+Returns a single environment object with the same structure as the list response.
+
+---
+
+## Create Environment
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Staging",
+    "description": "Staging environment for testing",
+    "organization_id": "org-123"
+  }' \
+  http://localhost:9081/api/environments
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:9081/api/environments', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'Staging',
+    description: 'Staging environment for testing',
+    organization_id: 'org-123'
+  })
+});
+const environment = await response.json();
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/environments`
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Environment name
+</ParamField>
+
+<ParamField body="description" type="string">
+  Environment description
+</ParamField>
+
+<ParamField body="organization_id" type="string" required>
+  Organization ID that will own this environment
+</ParamField>
+
+### Response
+
+**Status:** `201 Created`
+
+Returns the created environment object.
+
+---
+
+## Update Environment
+
+<CodeGroup>
+```bash cURL
+curl -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Production Updated",
+    "description": "Updated production environment"
+  }' \
+  http://localhost:9081/api/environments/{id}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/environments/${environmentId}`,
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: 'Production Updated',
+      description: 'Updated production environment'
+    })
+  }
+);
+const environment = await response.json();
+```
+</CodeGroup>
+
+**Method:** `PUT`
+
+**Endpoint:** `/api/environments/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Environment ID (UUID)
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string">
+  Updated environment name
+</ParamField>
+
+<ParamField body="description" type="string">
+  Updated environment description
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the updated environment object.
+
+---
+
+## Delete Environment
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/environments/{id}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/environments/${environmentId}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/environments/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Environment ID (UUID)
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the deleted environment object.
+
+---
+
+## Get Environment Connections
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:9081/api/environments/{environmentID}/connections?page=0&pagesize=25"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/environments/{environmentID}/connections`
+
+### Path Parameters
+
+<ParamField path="environmentID" type="string" required>
+  Environment ID (UUID)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="pagesize" type="integer" default="20">
+  Page size
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term
+</ParamField>
+
+<ParamField query="order" type="string">
+  Order by field
+</ParamField>
+
+<ParamField query="filter" type="string">
+  Filter conditions: `{"assigned": true/false, "deleted_at": true/false}`
+</ParamField>
+
+### Response
+
+Returns a paginated list of connections assigned to this environment.
+
+**Example Response:**
+
+```json
+{
+  "page": 0,
+  "page_size": 25,
+  "total_count": 1,
+  "connections": [
+    {
+      "id": "770e8400-e29b-41d4-a716-446655440002",
+      "name": "prod-cluster-1",
+      "kind": "kubernetes",
+      "type": "platform",
+      "sub_type": "management",
+      "status": "connected"
+    }
+  ]
+}
+```
+
+---
+
+## Add Connection to Environment
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/environments/{environmentID}/connections/{connectionID}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/environments/${environmentID}/connections/${connectionID}`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/environments/{environmentID}/connections/{connectionID}`
+
+### Path Parameters
+
+<ParamField path="environmentID" type="string" required>
+  Environment ID (UUID)
+</ParamField>
+
+<ParamField path="connectionID" type="string" required>
+  Connection ID to add (UUID)
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the environment-connection mapping object.
+
+---
+
+## Remove Connection from Environment
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/environments/{environmentID}/connections/{connectionID}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/environments/${environmentID}/connections/${connectionID}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/environments/{environmentID}/connections/{connectionID}`
+
+### Path Parameters
+
+<ParamField path="environmentID" type="string" required>
+  Environment ID (UUID)
+</ParamField>
+
+<ParamField path="connectionID" type="string" required>
+  Connection ID to remove (UUID)
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the removed environment-connection mapping.
+
+---
+
+## Error Codes
+
+<ResponseField name="400 Bad Request" type="error">
+  Invalid request parameters or malformed JSON
+</ResponseField>
+
+<ResponseField name="401 Unauthorized" type="error">
+  Missing or invalid authentication token
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="error">
+  Environment not found
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error" type="error">
+  Server error occurred
+</ResponseField>

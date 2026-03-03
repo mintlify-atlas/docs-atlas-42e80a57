@@ -1,0 +1,360 @@
+---
+title: mesheryctl component
+description: Manage Meshery components and their definitions
+---
+
+The `component` command manages individual infrastructure components that are part of models in the Meshery registry.
+
+## Synopsis
+
+```bash
+mesheryctl component [subcommand] [flags]
+```
+
+## Subcommands
+
+- `list` - List all available components
+- `view` - View component details
+- `search` - Search for components by name or model
+
+## Global Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display total count of components
+</ParamField>
+
+## list
+
+List all available infrastructure components.
+
+### Usage
+
+```bash
+mesheryctl component list [flags]
+```
+
+### Flags
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of components per page
+</ParamField>
+
+<ParamField path="--count" type="boolean" default="false">
+  Display only the count of components
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Components
+# List all components
+mesheryctl component list
+
+# Get component count
+mesheryctl component list --count
+```
+
+```bash Pagination
+# List first page with 50 items
+mesheryctl component list --page 1 --page-size 50
+
+# List second page
+mesheryctl component list --page 2
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+COMPONENT              MODEL                VERSION
+Pod                    Kubernetes           v1.28.0
+Service                Kubernetes           v1.28.0
+Deployment             Kubernetes           v1.28.0
+VirtualService         Istio                1.19.0
+DestinationRule        Istio                1.19.0
+Prometheus             Prometheus           v2.45.0
+
+Total: 1250 components
+```
+
+## view
+
+Display detailed information about a component.
+
+### Usage
+
+```bash
+mesheryctl component view [component-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="yaml">
+  Output format: `yaml`, `json`. Short form: `-o`
+</ParamField>
+
+<ParamField path="--model" type="string">
+  Filter by model name
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash View Component
+# View component in YAML
+mesheryctl component view Pod
+
+# View in JSON format
+mesheryctl component view Service -o json
+```
+
+```bash Filter by Model
+# View component from specific model
+mesheryctl component view VirtualService --model Istio
+```
+</CodeGroup>
+
+### Sample Output
+
+```yaml
+component:
+  kind: Pod
+  version: v1
+model:
+  name: Kubernetes
+  version: v1.28.0
+displayName: Pod
+category: Orchestration
+schema:
+  properties:
+    apiVersion:
+      type: string
+    kind:
+      type: string
+    metadata:
+      type: object
+    spec:
+      type: object
+metadata:
+  isNamespaced: true
+  published: true
+```
+
+## search
+
+Search for components by name, model, or other attributes.
+
+### Usage
+
+```bash
+mesheryctl component search [search-term] [flags]
+```
+
+### Flags
+
+<ParamField path="--model" type="string">
+  Filter by model name
+</ParamField>
+
+<ParamField path="--category" type="string">
+  Filter by category
+</ParamField>
+
+<ParamField path="--version" type="string">
+  Filter by version
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Search by Name
+# Search for pod-related components
+mesheryctl component search pod
+
+# Search in specific model
+mesheryctl component search --model Kubernetes
+```
+
+```bash Advanced Search
+# Search by category
+mesheryctl component search --category "Service Mesh"
+
+# Search with multiple filters
+mesheryctl component search service --model Istio --version 1.19.0
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+COMPONENT              MODEL                VERSION      CATEGORY
+Pod                    Kubernetes           v1.28.0      Orchestration
+PodDisruptionBudget    Kubernetes           v1.28.0      Orchestration
+PodMonitor             Prometheus           v2.45.0      Observability
+
+Found: 3 components
+```
+
+## Count Components
+
+Display the total number of registered components.
+
+### Usage
+
+```bash
+mesheryctl component --count
+```
+
+### Example Output
+
+```
+Total components: 1250
+```
+
+## Component Properties
+
+Components include the following key properties:
+
+### Basic Information
+- **Name** - Component identifier (e.g., Pod, Service)
+- **Kind** - Component type within its model
+- **Version** - Component version (may differ from model version)
+- **Model** - Parent model the component belongs to
+
+### Schema Definition
+- **Properties** - JSON Schema defining component structure
+- **Required** - Required fields for the component
+- **Defaults** - Default values for optional fields
+
+### Metadata
+- **Category** - Component category (inherited from model)
+- **IsNamespaced** - Whether component is namespace-scoped
+- **Published** - Publication status in registry
+- **Capabilities** - Special capabilities the component provides
+
+## Component Categories
+
+Components are categorized by their parent model:
+
+- **Orchestration** - Container orchestration (Pods, Deployments, Services)
+- **Service Mesh** - Service mesh primitives (VirtualService, DestinationRule)
+- **Observability** - Monitoring components (ServiceMonitor, PodMonitor)
+- **Network** - Networking components (Ingress, NetworkPolicy)
+- **Security** - Security components (SecurityPolicy, Certificate)
+- **Storage** - Storage components (PersistentVolume, StorageClass)
+- **Database** - Database components (PostgreSQL, Redis)
+
+## Use Cases
+
+### Find Available Kubernetes Components
+
+```bash
+# List all Kubernetes components
+mesheryctl component search --model Kubernetes
+
+# View specific component schema
+mesheryctl component view Deployment --model Kubernetes -o json
+```
+
+### Explore Service Mesh Components
+
+```bash
+# Search Istio components
+mesheryctl component search --model Istio
+
+# View VirtualService definition
+mesheryctl component view VirtualService --model Istio
+```
+
+### Check Component Availability
+
+```bash
+# Check if component exists
+mesheryctl component search MyComponent
+
+# View details if found
+mesheryctl component view MyComponent
+```
+
+## Working with Component Schemas
+
+Component schemas define the structure and validation rules:
+
+```yaml
+# Example component schema
+schema:
+  properties:
+    apiVersion:
+      type: string
+      default: v1
+    kind:
+      type: string
+      const: Pod
+    metadata:
+      type: object
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+    spec:
+      type: object
+      properties:
+        containers:
+          type: array
+          items:
+            type: object
+  required:
+    - apiVersion
+    - kind
+    - metadata
+    - spec
+```
+
+## Troubleshooting
+
+### Component Not Found
+
+```bash
+# List all available components
+mesheryctl component list
+
+# Search with partial name
+mesheryctl component search partial-name
+
+# Check specific model
+mesheryctl component list --model MyModel
+```
+
+### Too Many Results
+
+```bash
+# Use pagination
+mesheryctl component list --page-size 100
+
+# Filter by model
+mesheryctl component search my-component --model Kubernetes
+
+# Use specific search terms
+mesheryctl component search "exact component name"
+```
+
+### Schema Validation
+
+```bash
+# View component schema
+mesheryctl component view MyComponent -o json
+
+# Check required properties
+mesheryctl component view MyComponent | grep -A 10 "required:"
+```
+
+## See Also
+
+- [Model Command](/cli/model) - Manage infrastructure models
+- [Relationship Command](/cli/relationships) - View component relationships
+- [Design Command](/cli/design) - Use components in designs

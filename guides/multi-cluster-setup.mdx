@@ -1,0 +1,594 @@
+---
+title: Multi-Cluster Setup
+description: Configure and manage multiple Kubernetes clusters with Meshery
+---
+
+Meshery excels at managing infrastructure across multiple Kubernetes clusters and cloud providers. This guide covers setting up multi-cluster management, cross-cluster deployments, and centralized observability.
+
+## Why Multi-Cluster?
+
+Multi-cluster architectures provide:
+
+- **High Availability** - Distribute workloads across clusters
+- **Geographic Distribution** - Deploy closer to users
+- **Environment Isolation** - Separate dev, staging, and production
+- **Cloud Provider Diversity** - Avoid vendor lock-in
+- **Compliance** - Meet data residency requirements
+
+## Prerequisites
+
+Before setting up multi-cluster management:
+
+- Meshery Server running and accessible
+- `kubectl` access to each cluster
+- Proper RBAC permissions on each cluster
+- Network connectivity between Meshery and cluster API servers
+
+## Connecting Multiple Clusters
+
+### Auto-Discovery from Kubeconfig
+
+<Steps>
+  <Step title="Configure Kubeconfig">
+    Ensure your kubeconfig contains all cluster contexts:
+    
+    ```bash
+    # View available contexts
+    kubectl config get-contexts
+    
+    # Expected output:
+    # CURRENT   NAME              CLUSTER           AUTHINFO
+    # *         prod-cluster-1    prod-cluster-1    prod-admin
+    #           prod-cluster-2    prod-cluster-2    prod-admin  
+    #           staging-cluster   staging-cluster   staging-admin
+    #           dev-cluster       dev-cluster       dev-admin
+    ```
+  </Step>
+  
+  <Step title="Create Connections">
+    Create Meshery connections for each context:
+    
+    ```bash
+    # Production clusters
+    mesheryctl system context create prod-cluster-1
+    mesheryctl system context create prod-cluster-2
+    
+    # Staging cluster  
+    mesheryctl system context create staging-cluster
+    
+    # Development cluster
+    mesheryctl system context create dev-cluster
+    ```
+    
+    Each command:
+    1. Reads credentials from kubeconfig
+    2. Registers connection with Meshery
+    3. Deploys Meshery Operator to cluster
+    4. Starts MeshSync for discovery
+  </Step>
+  
+  <Step title="Verify Connections">
+    List all registered connections:
+    
+    ```bash
+    mesheryctl connections list
+    ```
+    
+    Example output:
+    ```
+    ID                                    NAME              KIND        STATUS      
+    a1b2c3d4-e5f6-7890-abcd-ef1234567890  prod-cluster-1    kubernetes  CONNECTED
+    b2c3d4e5-f6a7-8901-bcde-fa2345678901  prod-cluster-2    kubernetes  CONNECTED
+    c3d4e5f6-a7b8-9012-cdef-ab3456789012  staging-cluster   kubernetes  CONNECTED
+    d4e5f6a7-b8c9-0123-defa-bc4567890123  dev-cluster       kubernetes  REGISTERED
+    ```
+  </Step>
+</Steps>
+
+### Manual Connection Creation
+
+For clusters not in your kubeconfig:
+
+<Steps>
+  <Step title="Gather Cluster Information">
+    You'll need:
+    - Cluster API server URL
+    - CA certificate
+    - Service account token or client certificate
+    
+    ```bash
+    # Get cluster info
+    kubectl cluster-info
+    
+    # Create service account for Meshery
+    kubectl create serviceaccount meshery-server -n meshery
+    
+    # Create cluster role binding
+    kubectl create clusterrolebinding meshery-binding \
+      --clusterrole=cluster-admin \
+      --serviceaccount=meshery:meshery-server
+    
+    # Get token (Kubernetes 1.24+)
+    kubectl create token meshery-server -n meshery --duration=87600h
+    ```
+  </Step>
+  
+  <Step title="Create Connection via UI">
+    1. Navigate to **Settings** → **Connections**
+    2. Click **Create Connection**
+    3. Select **Kubernetes** as connection type
+    4. Fill in connection details:
+       - **Name**: Descriptive name (e.g., "GKE Production")
+       - **Server URL**: `https://your-cluster.example.com:6443`
+       - **Certificate Authority**: Cluster CA cert
+       - **Token**: Service account token
+    5. Click **Save and Connect**
+  </Step>
+  
+  <Step title="Test Connection">
+    Verify the connection is working:
+    
+    ```bash
+    mesheryctl connections view <connection-id>
+    ```
+    
+    Connection status should transition:
+    `REGISTERED` → `CONNECTED`
+  </Step>
+</Steps>
+
+<Note>
+Meshery requires `cluster-admin` or equivalent permissions to deploy the operator and discover resources. For production, consider creating a custom role with minimum required permissions.
+</Note>
+
+## Organizing with Environments
+
+Environments group clusters logically and enable environment-specific deployments:
+
+<Steps>
+  <Step title="Create Environments">
+    Define environments matching your deployment strategy:
+    
+    **Via UI:**
+    1. Navigate to **Environments**
+    2. Click **Create Environment**
+    3. Configure:
+       - **Name**: production, staging, development
+       - **Description**: Purpose and scope
+       - **Organization**: Your org ID
+  </Step>
+  
+  <Step title="Assign Connections">
+    Associate connections with environments:
+    
+    1. Open environment settings
+    2. Navigate to **Connections** tab
+    3. Add connections:
+       - **Production**: prod-cluster-1, prod-cluster-2
+       - **Staging**: staging-cluster
+       - **Development**: dev-cluster
+    
+    This enables environment-scoped deployments.
+  </Step>
+  
+  <Step title="Link to Workspaces">
+    Connect environments to team workspaces:
+    
+    1. Open **Workspace** settings
+    2. Go to **Environments** tab
+    3. Associate relevant environments
+    
+    Team members in the workspace can now deploy to assigned environments.
+  </Step>
+</Steps>
+
+## Cross-Cluster Deployments
+
+### Deploying to Multiple Clusters
+
+<Steps>
+  <Step title="Create Multi-Cluster Design">
+    Design your application in Meshery canvas:
+    
+    ```yaml
+    # example: web-app-design.yaml
+    name: multi-cluster-web-app
+    services:
+      nginx-deployment:
+        type: Deployment
+        model: kubernetes
+        settings:
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: nginx
+            template:
+              metadata:
+                labels:
+                  app: nginx
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:1.21
+                  ports:
+                  - containerPort: 80
+      
+      nginx-service:
+        type: Service
+        model: kubernetes
+        settings:
+          spec:
+            type: LoadBalancer
+            selector:
+              app: nginx
+            ports:
+            - port: 80
+              targetPort: 80
+    ```
+  </Step>
+  
+  <Step title="Deploy to Production Clusters">
+    Deploy the same design to multiple clusters:
+    
+    ```bash
+    # Deploy to first production cluster
+    mesheryctl system context switch prod-cluster-1
+    mesheryctl design apply -f web-app-design.yaml
+    
+    # Deploy to second production cluster
+    mesheryctl system context switch prod-cluster-2  
+    mesheryctl design apply -f web-app-design.yaml
+    ```
+    
+    Or deploy via UI:
+    1. Open design
+    2. Click **Deploy**
+    3. Select multiple environments/connections
+    4. Confirm bulk deployment
+  </Step>
+  
+  <Step title="Verify Deployment">
+    Check deployment status across clusters:
+    
+    ```bash
+    # Cluster 1
+    kubectl --context=prod-cluster-1 get deployments
+    
+    # Cluster 2
+    kubectl --context=prod-cluster-2 get deployments
+    ```
+  </Step>
+</Steps>
+
+### Environment-Specific Configurations
+
+Customize deployments per environment:
+
+```yaml
+# base-app.yaml with parameters
+name: parameterized-app
+services:
+  app:
+    type: Deployment
+    settings:
+      spec:
+        replicas: {{ .Values.replicas }}
+        template:
+          spec:
+            containers:
+            - name: app
+              image: myapp:{{ .Values.version }}
+              env:
+              - name: ENVIRONMENT
+                value: {{ .Values.environment }}
+              - name: LOG_LEVEL
+                value: {{ .Values.logLevel }}
+```
+
+Deploy with environment-specific values:
+
+```bash
+# Production (high replicas, stable version)
+mesheryctl design apply -f base-app.yaml \
+  --environment production \
+  --set replicas=10 \
+  --set version=v1.5.0 \
+  --set environment=production \
+  --set logLevel=warn
+
+# Staging (moderate replicas, latest version)
+mesheryctl design apply -f base-app.yaml \
+  --environment staging \
+  --set replicas=3 \
+  --set version=latest \
+  --set environment=staging \
+  --set logLevel=info
+
+# Development (minimal replicas, debug logging)
+mesheryctl design apply -f base-app.yaml \
+  --environment development \
+  --set replicas=1 \
+  --set version=dev \
+  --set environment=development \
+  --set logLevel=debug
+```
+
+## Multi-Cloud Management
+
+Meshery supports clusters across cloud providers:
+
+### AWS EKS
+
+```bash
+# Update kubeconfig for EKS
+aws eks update-kubeconfig --region us-west-2 --name prod-cluster
+
+# Create Meshery connection
+mesheryctl system context create eks-prod-cluster
+```
+
+### Azure AKS
+
+```bash
+# Get AKS credentials
+az aks get-credentials --resource-group myResourceGroup --name myAKSCluster
+
+# Create Meshery connection
+mesheryctl system context create aks-prod-cluster
+```
+
+### Google GKE
+
+```bash
+# Get GKE credentials
+gcloud container clusters get-credentials prod-cluster --zone us-central1-a
+
+# Create Meshery connection
+mesheryctl system context create gke-prod-cluster
+```
+
+### On-Premises
+
+```bash
+# Ensure kubeconfig is configured
+kubectl config use-context on-prem-cluster
+
+# Create Meshery connection
+mesheryctl system context create on-prem-cluster
+```
+
+<CardGroup cols={2}>
+  <Card title="AWS" icon="aws">
+    EKS, EC2, ECS integrations
+  </Card>
+  <Card title="Azure" icon="microsoft">
+    AKS, Container Instances
+  </Card>
+  <Card title="Google Cloud" icon="google">
+    GKE, Cloud Run, GCE
+  </Card>
+  <Card title="On-Premises" icon="server">
+    Self-managed Kubernetes
+  </Card>
+</CardGroup>
+
+## Centralized Observability
+
+### MeshSync Discovery
+
+MeshSync runs in each cluster to discover resources:
+
+```bash
+# Check MeshSync status in cluster
+kubectl get pods -n meshery -l app=meshsync
+
+# View discovered resources
+kubectl get meshsync -n meshery
+```
+
+MeshSync publishes discovery events to Meshery Server via NATS, enabling:
+- Real-time resource inventory
+- Cross-cluster visibility
+- Configuration drift detection
+
+### Unified Dashboard
+
+Meshery UI provides centralized view across clusters:
+
+1. **Visualizer**: See resources from all clusters
+2. **Filters**: Toggle cluster visibility
+3. **Search**: Find resources across infrastructure
+4. **Health**: Monitor component status
+
+### Monitoring Integration
+
+Connect monitoring systems for each cluster:
+
+<Steps>
+  <Step title="Prometheus Connections">
+    Create connection for each cluster's Prometheus:
+    
+    ```bash
+    # Production cluster 1 Prometheus
+    mesheryctl connections create \
+      --name "prod-1-prometheus" \
+      --type prometheus \
+      --url http://prometheus.prod-1.svc:9090
+    
+    # Production cluster 2 Prometheus  
+    mesheryctl connections create \
+      --name "prod-2-prometheus" \
+      --type prometheus \
+      --url http://prometheus.prod-2.svc:9090
+    ```
+  </Step>
+  
+  <Step title="Grafana Dashboards">
+    Connect Grafana instances:
+    
+    ```bash
+    mesheryctl connections create \
+      --name "prod-grafana" \
+      --type grafana \
+      --url https://grafana.example.com
+    ```
+  </Step>
+  
+  <Step title="Aggregate Metrics">
+    View aggregated metrics in Meshery Performance dashboard:
+    - Query across clusters
+    - Compare performance
+    - Generate unified reports
+  </Step>
+</Steps>
+
+## Connection Management
+
+### Connection Lifecycle
+
+Connections have the following statuses:
+
+- **DISCOVERED** - Found but not registered
+- **REGISTERED** - Registered, ready to connect
+- **CONNECTED** - Active, syncing data
+- **DISCONNECTED** - Previously connected, now offline
+- **MAINTENANCE** - Temporarily disabled
+- **IGNORED** - Discovered but deliberately ignored
+- **DELETED** - Marked for deletion
+
+### Updating Connections
+
+```bash
+# View connection details
+mesheryctl connections view <connection-name>
+
+# Update connection (e.g., rotate credentials)
+# Via UI: Settings → Connections → Edit
+```
+
+### Removing Connections
+
+<Warning>
+Deleting a connection removes Meshery components from the cluster and stops synchronization.
+</Warning>
+
+```bash
+# Delete connection
+mesheryctl connections delete <connection-name>
+
+# This will:
+# 1. Stop MeshSync
+# 2. Remove Meshery Operator (optional)
+# 3. Delete connection from Meshery
+```
+
+## Security Considerations
+
+### Credential Management
+
+- **Service Accounts**: Use dedicated service accounts per cluster
+- **Token Rotation**: Regularly rotate authentication tokens
+- **Least Privilege**: Grant minimum required permissions
+- **Secret Storage**: Meshery encrypts stored credentials
+
+### Network Security
+
+- **API Server Access**: Ensure Meshery can reach cluster API servers
+- **Firewalls**: Whitelist Meshery Server IP addresses
+- **VPN/Private Networks**: Use secure networks for communication
+- **mTLS**: Enable mutual TLS where supported
+
+### RBAC Configuration
+
+Minimum RBAC for Meshery Operator:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: meshery-operator
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "statefulsets"]
+  verbs: ["create", "update", "patch", "delete"]
+- apiGroups: [""]
+  resources: ["services", "configmaps", "secrets"]
+  verbs: ["create", "update", "patch", "delete"]
+```
+
+## Troubleshooting
+
+### Connection Failures
+
+**Symptom**: Connection status stuck at REGISTERED
+
+**Solutions**:
+```bash
+# Verify cluster accessibility
+kubectl --context=<cluster> cluster-info
+
+# Check Meshery operator logs
+kubectl --context=<cluster> logs -n meshery -l app=meshery-operator
+
+# Verify network connectivity
+telnet <cluster-api-server> 6443
+```
+
+### MeshSync Not Running
+
+**Symptom**: Resources not appearing in Meshery
+
+**Solutions**:
+```bash
+# Check MeshSync deployment
+kubectl get deployment meshsync -n meshery
+
+# View MeshSync logs
+kubectl logs -n meshery -l app=meshsync --tail=100
+
+# Restart MeshSync
+kubectl rollout restart deployment/meshsync -n meshery
+```
+
+### Cross-Cluster Communication
+
+**Symptom**: Unable to deploy across clusters
+
+**Solutions**:
+1. Verify active connection: `mesheryctl connections list`
+2. Switch context: `mesheryctl system context switch <cluster>`
+3. Test kubectl access: `kubectl get nodes`
+4. Check environment associations
+
+## Best Practices
+
+### Naming Conventions
+
+- **Descriptive Names**: `aws-eks-prod-us-west-2`
+- **Environment Prefix**: `prod-`, `staging-`, `dev-`
+- **Provider Labels**: Include cloud provider
+- **Region Tags**: Add geographic region
+
+### Organization
+
+- **Environment Isolation**: Separate prod/staging/dev
+- **Workspace Alignment**: Match teams to workspaces
+- **Connection Grouping**: Group by cloud provider or region
+
+### Monitoring
+
+- **Health Checks**: Regularly verify connection status
+- **Resource Limits**: Monitor cluster capacity
+- **Sync Status**: Ensure MeshSync is running
+- **Event Monitoring**: Watch Notification Center for issues
+
+## Next Steps
+
+- Implement [Policy Engine](/guides/policy-engine) across clusters
+- Set up [Team Collaboration](/guides/collaboration) with workspaces
+- Configure [Infrastructure Management](/guides/infrastructure-management)
+- Explore [Cloud Provider Integrations](/guides/integrations)

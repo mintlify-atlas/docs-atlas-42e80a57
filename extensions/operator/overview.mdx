@@ -1,0 +1,428 @@
+---
+title: Meshery Operator
+description: Kubernetes operator managing Meshery components and cluster discovery
+---
+
+The Meshery Operator is a Kubernetes controller that manages the lifecycle of Meshery components within Kubernetes clusters. It deploys and configures MeshSync for cluster state discovery and Meshery Broker for event streaming, enabling real-time cluster monitoring and management.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   Meshery Server (External)                       │
+│                                                                   │
+│  Subscribes to NATS topics for cluster events                    │
+└─────────────────────────────┬───────────────────────────────────┘
+                             │ NATS Protocol (port 4222)
+                             │
+┌────────────────────────────▼───────────────────────────────────┐
+│              Kubernetes Cluster (meshery namespace)              │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              Meshery Operator (Deployment)                │  │
+│  │                                                              │  │
+│  │  Watches:                                                  │  │
+│  │  • Broker CRD (meshery.io/v1alpha1)                       │  │
+│  │  • MeshSync CRD (meshery.io/v1alpha1)                     │  │
+│  │                                                              │  │
+│  │  Reconciles:                                               │  │
+│  │  • Creates/updates Broker deployment                      │  │
+│  │  • Creates/updates MeshSync deployment                    │  │
+│  │  • Manages ConfigMaps for watch-list                      │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                             │                                  │
+│                             │ Creates/Manages                 │
+│       ┌─────────────────────┼─────────────────────────────────┐  │
+│       │                        │                            │  │
+│  ┌────▼───────────────────┐  ┌────▼───────────────────┐  │
+│  │  Meshery Broker      │  │    MeshSync          │  │
+│  │  (NATS Server)       │  │  (Discovery Agent) │  │
+│  │                      │  │                    │  │
+│  │  • Deployment         │  │  • Deployment      │  │
+│  │  • Service (LB)       │  │  • ConfigMap       │  │
+│  │  • Port: 4222         │  │    (watch-list)    │  │
+│  │                      │  │                    │  │
+│  │  Publishes events:   │  │  Watches:          │  │
+│  │  • meshery.broker    │  │  • Pods            │  │
+│  │                      │  │  • Deployments     │  │
+│  └──────────────────────┘  │  • Services        │  │
+│       │                     │  • Namespaces      │  │
+│       │ NATS Topics         │  • ConfigMaps      │  │
+│       │                     │  • etc.            │  │
+│       │                     │                    │  │
+│       │  meshsync.request   │  Publishes to:     │  │
+│       └─────────────────────┴────────────────────┘  │
+│                              meshsync.request                     │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Components
+
+The Meshery Operator manages three core components:
+
+### 1. Meshery Operator Controller
+
+A Kubernetes operator built with Kubebuilder that:
+- Watches `Broker` and `MeshSync` CRDs
+- Reconciles desired state with actual state
+- Manages component lifecycle
+- Reports status via CRD status fields
+
+### 2. Meshery Broker (NATS)
+
+A NATS server providing pub/sub messaging:
+- Event distribution between MeshSync and Meshery Server
+- Exposed via LoadBalancer service
+- External endpoint for Meshery Server connection
+
+### 3. MeshSync
+
+Cluster discovery and synchronization agent:
+- Watches Kubernetes resources
+- Publishes resource changes to Broker
+- Configurable resource filtering (whitelist/blacklist)
+
+## Installation
+
+### Using Helm
+
+The recommended installation method is via Helm:
+
+```bash
+# Add Meshery Helm repository
+helm repo add meshery https://meshery.io/charts
+helm repo update
+
+# Install Meshery Operator
+helm install meshery-operator meshery/meshery-operator \
+  --namespace meshery \
+  --create-namespace
+```
+
+### Using kubectl
+
+Direct installation with manifests:
+
+```bash
+# Create namespace
+kubectl create namespace meshery
+
+# Apply CRDs
+kubectl apply -f https://raw.githubusercontent.com/meshery/meshery/master/install/kubernetes/helm/meshery-operator/crds/crds.yaml
+
+# Apply operator
+kubectl apply -f https://raw.githubusercontent.com/meshery/meshery/master/install/kubernetes/manifests/meshery-operator.yaml
+```
+
+### Using mesheryctl
+
+```bash
+mesheryctl system start
+```
+
+This automatically deploys the operator along with Meshery Server.
+
+## Custom Resource Definitions
+
+### Broker CRD
+
+Defines a Meshery Broker instance:
+
+```yaml
+apiVersion: meshery.io/v1alpha1
+kind: Broker
+metadata:
+  name: meshery-broker
+  namespace: meshery
+spec:
+  size: 1  # Number of replicas
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      lastTransitionTime: "2024-01-15T10:30:00Z"
+      reason: BrokerDeployed
+      message: Broker is running
+  endpoint:
+    internal: meshery-broker.meshery.svc.cluster.local:4222
+    external: localhost:4222  # LoadBalancer IP:port
+```
+
+**Spec Fields:**
+
+| Field | Type | Description | Default |
+|-------|------|-------------|----------|
+| `size` | int32 | Number of broker replicas | 1 |
+
+**Status Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Operational status conditions |
+| `endpoint.internal` | string | Internal cluster DNS name |
+| `endpoint.external` | string | External LoadBalancer endpoint |
+
+### MeshSync CRD
+
+Defines a MeshSync instance:
+
+```yaml
+apiVersion: meshery.io/v1alpha1
+kind: MeshSync
+metadata:
+  name: meshery-meshsync
+  namespace: meshery
+spec:
+  size: 1
+  version: "v0.7.0"
+  broker:
+    native:
+      name: meshery-broker
+      namespace: meshery
+  watch-list:
+    data:
+      whitelist: |
+        [{"Resource":"pods.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+         {"Resource":"deployments.v1.apps","Events":["ADDED","MODIFIED","DELETED"]},
+         {"Resource":"services.v1.","Events":["ADDED","MODIFIED","DELETED"]}]
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+  publishing-to: meshery-broker.meshery.svc.cluster.local:4222
+```
+
+**Spec Fields:**
+
+| Field | Type | Description | Default |
+|-------|------|-------------|----------|
+| `size` | int32 | Number of MeshSync replicas | 1 |
+| `version` | string | Meshery version | - |
+| `broker.native.name` | string | Broker CR name to use | - |
+| `broker.native.namespace` | string | Broker namespace | - |
+| `broker.custom.url` | string | External broker URL (alternative) | - |
+| `watch-list.data.whitelist` | string | JSON array of resources to watch | - |
+| `watch-list.data.blacklist` | string | JSON array of resources to ignore | - |
+
+**Status Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `conditions` | []Condition | Operational status |
+| `publishing-to` | string | Broker endpoint in use |
+
+## Deployment Configuration
+
+### Operator Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meshery-operator
+  namespace: meshery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: meshery-operator
+  template:
+    metadata:
+      labels:
+        name: meshery-operator
+    spec:
+      serviceAccountName: meshery-operator
+      containers:
+      - name: manager
+        image: meshery/meshery-operator:stable-latest
+        command:
+        - /manager
+        args:
+        - --metrics-addr=127.0.0.1:8080
+        - --enable-leader-election
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+        - containerPort: 8080
+          name: metrics
+      - name: kube-rbac-proxy
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+        args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=false
+        - --v=10
+        ports:
+        - containerPort: 8443
+          name: https
+```
+
+### RBAC Configuration
+
+The operator requires cluster-wide permissions:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: meshery-operator
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "persistentvolumeclaims", "events", "configmaps", "secrets"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "replicasets", "statefulsets"]
+  verbs: ["*"]
+- apiGroups: ["meshery.io"]
+  resources: ["brokers", "meshsyncs"]
+  verbs: ["*"]
+- apiGroups: ["meshery.io"]
+  resources: ["brokers/status", "meshsyncs/status"]
+  verbs: ["get", "update", "patch"]
+```
+
+## Configuration
+
+### Helm Values
+
+```yaml
+# values.yaml
+replicaCount: 1
+
+mesheryOperator:
+  name: manager
+  image:
+    repository: meshery/meshery-operator:stable-latest
+    pullPolicy: Always
+  args:
+    - --metrics-addr=127.0.0.1:8080
+    - --enable-leader-election
+
+kubeRbac:
+  name: kube-rbac-proxy
+  image:
+    repository: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
+    pullPolicy: Always
+
+meshery-broker:
+  enabled: true
+  fullnameOverride: meshery-broker
+  serviceAccountNameOverride: meshery-server
+
+meshery-meshsync:
+  enabled: true
+  fullnameOverride: meshery-meshsync
+  serviceAccountNameOverride: meshery-server
+  broker:
+    name: meshery-broker
+    namespace: meshery
+```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MESHERY_SERVER` | Meshery Server URL | - |
+| `KUBECONFIG` | Path to kubeconfig | - |
+| `ADAPTER_URLS` | Comma-separated adapter URLs | - |
+
+## Verification
+
+Check operator deployment:
+
+```bash
+# Check operator pod
+kubectl get pods -n meshery -l name=meshery-operator
+
+# Check CRDs
+kubectl get crd | grep meshery
+
+# Check broker
+kubectl get broker -n meshery
+kubectl get pods -n meshery -l app=meshery-broker
+
+# Check meshsync
+kubectl get meshsync -n meshery
+kubectl get pods -n meshery -l app=meshery-meshsync
+
+# Check broker service
+kubectl get svc -n meshery meshery-broker
+```
+
+Expected output:
+
+```
+NAME              READY   STATUS    RESTARTS   AGE
+meshery-operator  2/2     Running   0          5m
+meshery-broker    1/1     Running   0          5m
+meshery-meshsync  1/1     Running   0          5m
+
+NAME              TYPE           EXTERNAL-IP     PORT(S)
+meshery-broker    LoadBalancer   34.123.45.67    4222:30222/TCP
+```
+
+## Troubleshooting
+
+### Operator Not Starting
+
+```bash
+# Check operator logs
+kubectl logs -n meshery deployment/meshery-operator -c manager
+
+# Check RBAC
+kubectl auth can-i create deployments --as=system:serviceaccount:meshery:meshery-operator
+```
+
+### Broker Not Accessible
+
+```bash
+# Check service
+kubectl get svc -n meshery meshery-broker
+
+# Check LoadBalancer
+kubectl describe svc -n meshery meshery-broker
+
+# Port forward for testing
+kubectl port-forward -n meshery svc/meshery-broker 4222:4222
+```
+
+### MeshSync Not Discovering Resources
+
+```bash
+# Check MeshSync logs
+kubectl logs -n meshery deployment/meshery-meshsync
+
+# Check watch-list configuration
+kubectl get meshsync -n meshery meshery-meshsync -o yaml
+
+# Verify broker connection
+kubectl logs -n meshery deployment/meshery-meshsync | grep -i broker
+```
+
+## Uninstallation
+
+### Using Helm
+
+```bash
+helm uninstall meshery-operator -n meshery
+```
+
+### Using kubectl
+
+```bash
+kubectl delete -f https://raw.githubusercontent.com/meshery/meshery/master/install/kubernetes/manifests/meshery-operator.yaml
+kubectl delete -f https://raw.githubusercontent.com/meshery/meshery/master/install/kubernetes/helm/meshery-operator/crds/crds.yaml
+kubectl delete namespace meshery
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MeshSync" icon="sync" href="/extensions/operator/meshsync">
+    Learn about cluster discovery
+  </Card>
+  <Card title="Broker" icon="message" href="/extensions/operator/broker">
+    Understand event streaming
+  </Card>
+</CardGroup>

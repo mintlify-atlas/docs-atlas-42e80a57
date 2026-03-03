@@ -1,0 +1,423 @@
+---
+title: Design Catalog
+description: Discover, share, and deploy curated cloud native infrastructure patterns from Meshery's design catalog
+---
+
+The Meshery Design Catalog is a curated collection of reusable infrastructure patterns, configurations, and best practices for Kubernetes and cloud native technologies. Browse pre-built designs, import them into your workspace, and deploy to your clusters with a single click.
+
+## Overview
+
+The Design Catalog provides:
+
+- **Curated Patterns**: Pre-built infrastructure designs following best practices
+- **Community Contributions**: Patterns shared by the Meshery community
+- **One-click Deploy**: Deploy catalog patterns directly to your clusters
+- **Customizable Templates**: Use as starting points for your own designs
+- **Version Control**: Track pattern versions and updates
+- **OCI Artifacts**: Patterns packaged as OCI artifacts for distribution
+
+<CardGroup cols={2}>
+  <Card title="300+ Patterns" icon="layer-group">
+    Browse hundreds of pre-configured infrastructure patterns
+  </Card>
+  <Card title="Best Practices" icon="star">
+    All patterns follow cloud native best practices and standards
+  </Card>
+  <Card title="Quick Start" icon="bolt">
+    Deploy complete stacks in minutes instead of hours
+  </Card>
+  <Card title="Community Driven" icon="users">
+    Contribute and benefit from community knowledge
+  </Card>
+</CardGroup>
+
+## Browsing the Catalog
+
+### Accessing the Catalog
+
+<Steps>
+  <Step title="Navigate to Catalog">
+    Go to Configuration > Catalog in the Meshery UI
+  </Step>
+  <Step title="Browse Patterns">
+    Scroll through available patterns or use search and filters
+  </Step>
+  <Step title="View Details">
+    Click on a pattern to see detailed information and preview
+  </Step>
+  <Step title="Import or Deploy">
+    Import to workspace for customization or deploy directly
+  </Step>
+</Steps>
+
+**Access the catalog online:**
+[https://meshery.io/catalog](https://meshery.io/catalog)
+
+### Pattern Categories
+
+Patterns are organized into categories:
+
+<AccordionGroup>
+  <Accordion title="Application Stacks">
+    Complete application deployments including frontend, backend, database, and caching layers
+  </Accordion>
+  <Accordion title="Service Mesh Configurations">
+    Pre-configured service mesh setups for Istio, Linkerd, Consul, and others
+  </Accordion>
+  <Accordion title="Observability">
+    Monitoring, logging, and tracing stack configurations (Prometheus, Grafana, Jaeger)
+  </Accordion>
+  <Accordion title="Security">
+    Security policies, RBAC configurations, network policies, and certificate management
+  </Accordion>
+  <Accordion title="CI/CD">
+    Continuous integration and deployment pipelines (ArgoCD, Flux, Jenkins)
+  </Accordion>
+  <Accordion title="Databases">
+    Database deployments for PostgreSQL, MySQL, MongoDB, Redis, and others
+  </Accordion>
+  <Accordion title="Networking">
+    Ingress controllers, load balancers, service meshes, and network policies
+  </Accordion>
+  <Accordion title="Storage">
+    Persistent storage configurations, CSI drivers, and backup solutions
+  </Accordion>
+</AccordionGroup>
+
+### Search and Filters
+
+Find patterns efficiently:
+
+- **Search by Name**: Search for patterns by name or description
+- **Filter by Technology**: Filter by Kubernetes, Istio, Prometheus, etc.
+- **Filter by Type**: Application, configuration, policy, etc.
+- **Filter by Complexity**: Simple, intermediate, advanced
+- **Sort Options**: By popularity, recent updates, name, or rating
+
+## Using Catalog Patterns
+
+### Importing Patterns
+
+Import catalog patterns to your workspace:
+
+<Steps>
+  <Step title="Select Pattern">
+    Find and click on the pattern you want to use
+  </Step>
+  <Step title="Review Details">
+    Examine the pattern components and configuration
+  </Step>
+  <Step title="Click Import">
+    Click "Import" to add the pattern to your workspace
+  </Step>
+  <Step title="Customize">
+    Modify the imported pattern in Kanvas to fit your needs
+  </Step>
+  <Step title="Save">
+    Save your customized version with a new name
+  </Step>
+</Steps>
+
+**Using mesheryctl:**
+
+```bash
+# Browse catalog patterns
+mesheryctl pattern catalog list
+
+# View pattern details
+mesheryctl pattern catalog view <pattern-id>
+
+# Import pattern to workspace
+mesheryctl pattern catalog import <pattern-id>
+
+# Search catalog
+mesheryctl pattern catalog search "istio"
+```
+
+### Deploying from Catalog
+
+Deploy catalog patterns directly without importing:
+
+<Steps>
+  <Step title="Select Pattern">
+    Choose the pattern you want to deploy
+  </Step>
+  <Step title="Click Deploy">
+    Click the "Deploy" button on the pattern detail page
+  </Step>
+  <Step title="Select Target">
+    Choose which Kubernetes context(s) to deploy to
+  </Step>
+  <Step title="Configure Options">
+    Set deployment namespace and any required parameters
+  </Step>
+  <Step title="Confirm Deploy">
+    Review and confirm the deployment
+  </Step>
+</Steps>
+
+## Pattern Details
+
+### Pattern Information
+
+Each catalog pattern includes:
+
+**Metadata:**
+- Pattern name and description
+- Author and publisher information
+- Version and last updated date
+- Technology stack (Kubernetes version, integrations)
+- Complexity level
+
+**Documentation:**
+- Overview and use cases
+- Architecture diagram
+- Component descriptions
+- Configuration instructions
+- Prerequisites and dependencies
+
+**Visual Preview:**
+- Visual representation in Kanvas format
+- Component relationships
+- Network topology
+- Resource organization
+
+### Pattern Components
+
+View what's included in each pattern:
+
+<CardGroup cols={2}>
+  <Card title="Resources">
+    List of all Kubernetes resources (Deployments, Services, etc.)
+  </Card>
+  <Card title="Dependencies">
+    Required CRDs, operators, or external services
+  </Card>
+  <Card title="Configuration">
+    ConfigMaps, Secrets (templates), and environment variables
+  </Card>
+  <Card title="Policies">
+    Network policies, RBAC rules, and security policies
+  </Card>
+</CardGroup>
+
+## Publishing to Catalog
+
+### Sharing Your Patterns
+
+Contribute your designs to the community catalog:
+
+<Steps>
+  <Step title="Create Design">
+    Build and test your design in Meshery
+  </Step>
+  <Step title="Add Documentation">
+    Write clear description, use cases, and instructions
+  </Step>
+  <Step title="Set Metadata">
+    Add tags, category, and complexity level
+  </Step>
+  <Step title="Publish">
+    Click "Publish to Catalog" in the design menu
+  </Step>
+  <Step title="Review Process">
+    Pattern enters review queue for catalog approval
+  </Step>
+</Steps>
+
+### Publication Requirements
+
+To publish patterns to the catalog:
+
+<Tabs>
+  <Tab title="Quality">
+    - Design must deploy successfully
+    - All components properly configured
+    - No hard-coded credentials or secrets
+    - Follows Kubernetes best practices
+  </Tab>
+  <Tab title="Documentation">
+    - Clear, descriptive name
+    - Detailed description of purpose
+    - Prerequisites listed
+    - Configuration instructions included
+  </Tab>
+  <Tab title="Metadata">
+    - Appropriate category assignment
+    - Relevant tags for discoverability
+    - Correct complexity level
+    - Version information
+  </Tab>
+</Tabs>
+
+### Publishing via API
+
+```graphql
+mutation PublishPattern($input: PublishCatalogItemInput!) {
+  publishCatalogItem(input: $input) {
+    id
+    name
+    visibility
+    catalog_data {
+      published_version
+      content_class
+    }
+  }
+}
+```
+
+## Popular Catalog Patterns
+
+### Application Patterns
+
+**Bookinfo Application (Istio)**
+- Complete microservices demo application
+- Product page, details, reviews, ratings services
+- Istio service mesh integration
+- Traffic management and observability
+
+**NGINX Ingress with TLS**
+- NGINX Ingress Controller deployment
+- TLS certificate management
+- Virtual host configurations
+- Backend service routing
+
+**WordPress with MySQL**
+- WordPress application deployment
+- MySQL database with persistent storage
+- Service exposure configuration
+- Resource limits and requests
+
+### Observability Patterns
+
+**Prometheus Stack**
+- Prometheus server deployment
+- Node exporter for metrics
+- kube-state-metrics
+- Service monitors configuration
+
+**Grafana Dashboard**
+- Grafana deployment
+- Prometheus datasource
+- Pre-configured dashboards
+- Authentication setup
+
+**Jaeger Tracing**
+- Jaeger operator deployment
+- Collector and query services
+- Storage configuration
+- Service mesh integration
+
+### Security Patterns
+
+**Network Policies**
+- Default deny all traffic
+- Allow traffic between specific services
+- Namespace isolation
+- Egress controls
+
+**RBAC Configuration**
+- Service accounts
+- Roles and cluster roles
+- Role bindings
+- Principle of least privilege examples
+
+## Catalog Integration
+
+### OCI Artifact Distribution
+
+Catalog patterns are distributed as OCI artifacts:
+
+```bash
+# Pull pattern as OCI artifact
+mesheryctl pattern pull oci://meshery.io/catalog/nginx-ingress:v1.0
+
+# Deploy from OCI artifact
+mesheryctl pattern deploy oci://meshery.io/catalog/nginx-ingress:v1.0
+
+# List available versions
+mesheryctl pattern versions oci://meshery.io/catalog/nginx-ingress
+```
+
+### Private Catalogs
+
+Organizations can maintain private catalogs:
+
+<Steps>
+  <Step title="Set Up Private Registry">
+    Configure OCI-compliant registry for pattern storage
+  </Step>
+  <Step title="Configure Meshery">
+    Add private registry credentials to Meshery
+  </Step>
+  <Step title="Publish Patterns">
+    Publish organization patterns to private catalog
+  </Step>
+  <Step title="Access Control">
+    Control access via registry authentication
+  </Step>
+</Steps>
+
+## Pattern Versioning
+
+### Version Management
+
+Catalog patterns support semantic versioning:
+
+- **Major Version**: Breaking changes or significant redesigns
+- **Minor Version**: New features or enhancements
+- **Patch Version**: Bug fixes and minor updates
+
+**Example versions:**
+- `v1.0.0` - Initial release
+- `v1.1.0` - Added monitoring components
+- `v1.1.1` - Fixed resource limits
+- `v2.0.0` - Redesigned for Kubernetes 1.28+
+
+### Updating Patterns
+
+Keep deployed patterns up to date:
+
+```bash
+# Check for pattern updates
+mesheryctl pattern update check <pattern-id>
+
+# Update to latest version
+mesheryctl pattern update <pattern-id>
+
+# Update to specific version
+mesheryctl pattern update <pattern-id> --version v2.0.0
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Review Before Deploying">
+    Always review pattern components and configuration before deploying to production environments.
+  </Accordion>
+  <Accordion title="Test in Non-production First">
+    Deploy catalog patterns to development or staging environments first to verify compatibility.
+  </Accordion>
+  <Accordion title="Customize for Your Needs">
+    Import patterns to your workspace and customize resource limits, replicas, and configurations.
+  </Accordion>
+  <Accordion title="Check Prerequisites">
+    Verify all prerequisites (CRDs, operators, storage classes) are met before deploying.
+  </Accordion>
+  <Accordion title="Use Version Pinning">
+    Pin to specific pattern versions in production to avoid unexpected changes.
+  </Accordion>
+  <Accordion title="Document Customizations">
+    Keep track of any customizations made to catalog patterns for future reference.
+  </Accordion>
+  <Accordion title="Contribute Back">
+    Share improvements and fixes back to the catalog to benefit the community.
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+- [Visual Designer](/features/visual-designer) - Create new patterns visually
+- [Kanvas](/features/kanvas) - Collaborative pattern design
+- [GitOps](/features/gitops) - Version control for patterns
+- [Multi-cluster Management](/features/multi-cluster-management) - Deploy patterns across clusters

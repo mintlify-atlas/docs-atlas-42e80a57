@@ -1,0 +1,614 @@
+---
+title: Cloud Provider Integrations
+description: Manage AWS, GCP, and Azure services through Kubernetes with Meshery
+---
+
+# Cloud Provider Integrations
+
+Meshery extends Kubernetes management to cloud provider services, enabling you to design, deploy, and operate cloud infrastructure using the same workflows as your Kubernetes resources. Meshery integrates with AWS, GCP, and Azure through Kubernetes operators and Custom Resource Definitions (CRDs).
+
+## Overview
+
+Cloud provider integrations allow you to:
+
+- **Declarative Cloud Management**: Define cloud resources as Kubernetes manifests
+- **Unified Control Plane**: Manage Kubernetes and cloud resources from Meshery
+- **Visual Design**: Drag-and-drop cloud services in Kanvas
+- **GitOps-Ready**: Version control cloud infrastructure alongside Kubernetes configs
+- **Cross-Cloud Portability**: Design patterns that work across providers
+
+## Supported Cloud Providers
+
+<CardGroup cols={3}>
+  <Card title="Amazon Web Services" icon="aws">
+    AWS EKS, RDS, S3, Lambda, and more through ACK
+  </Card>
+  <Card title="Google Cloud Platform" icon="google">
+    GKE, Cloud SQL, Cloud Storage, and GCP services
+  </Card>
+  <Card title="Microsoft Azure" icon="microsoft">
+    AKS, Azure Storage, SQL Database through ASO
+  </Card>
+</CardGroup>
+
+## AWS Integration
+
+Meshery integrates with AWS through the **AWS Controllers for Kubernetes (ACK)** project, which provides Kubernetes CRDs for AWS services.
+
+### Supported AWS Services
+
+<Tabs>
+  <Tab title="Compute & Containers">
+    - **Amazon EKS**: Managed Kubernetes clusters
+    - **AWS Lambda**: Serverless functions
+    - **Amazon ECS**: Container orchestration
+    - **AWS Fargate**: Serverless container compute
+  </Tab>
+  <Tab title="Databases">
+    - **Amazon RDS**: Relational databases (PostgreSQL, MySQL, MariaDB, SQL Server)
+    - **Amazon DynamoDB**: NoSQL database
+    - **Amazon ElastiCache**: Redis and Memcached
+    - **Amazon DocumentDB**: MongoDB-compatible database
+  </Tab>
+  <Tab title="Storage">
+    - **Amazon S3**: Object storage
+    - **Amazon EBS**: Block storage
+    - **Amazon EFS**: Elastic file system
+  </Tab>
+  <Tab title="Networking">
+    - **Amazon VPC**: Virtual private cloud
+    - **Elastic Load Balancing**: Application and network load balancers
+    - **Amazon Route 53**: DNS service
+    - **AWS App Mesh**: Service mesh (see [Service Mesh Integration](/integrations/service-meshes))
+  </Tab>
+  <Tab title="Other Services">
+    - **Amazon SNS**: Notification service
+    - **Amazon SQS**: Message queuing
+    - **AWS Secrets Manager**: Secrets management
+    - **Amazon CloudWatch**: Monitoring and logging
+  </Tab>
+</Tabs>
+
+### Installation
+
+#### Prerequisites
+
+- AWS account with appropriate permissions
+- Kubernetes cluster (EKS recommended)
+- AWS CLI configured
+- IAM roles for service accounts (IRSA) configured
+
+#### Setup AWS Controllers
+
+<Steps>
+  <Step title="Install ACK Controller">
+    Install the ACK controller for your desired service (e.g., RDS):
+
+    ```bash
+    # Install RDS controller
+    export AWS_REGION=us-west-2
+    export ACK_K8S_NAMESPACE=ack-system
+    
+    helm repo add ack https://aws-controllers-k8s.github.io/charts
+    helm install ack-rds-controller ack/rds-chart \
+      --namespace $ACK_K8S_NAMESPACE \
+      --create-namespace \
+      --set aws.region=$AWS_REGION
+    ```
+  </Step>
+  <Step title="Configure IAM Permissions">
+    Create an IAM role with permissions for the ACK controller:
+
+    ```bash
+    # Create IAM policy
+    aws iam create-policy \
+      --policy-name ACKRDSControllerPolicy \
+      --policy-document file://ack-rds-policy.json
+
+    # Associate with service account
+    eksctl create iamserviceaccount \
+      --name ack-rds-controller \
+      --namespace ack-system \
+      --cluster my-cluster \
+      --attach-policy-arn arn:aws:iam::ACCOUNT_ID:policy/ACKRDSControllerPolicy \
+      --approve
+    ```
+  </Step>
+  <Step title="Connect Meshery">
+    Meshery automatically discovers ACK CRDs when you connect your EKS cluster. Navigate to **Connections** in Meshery UI and verify AWS components are available.
+  </Step>
+</Steps>
+
+### Example: Deploy RDS Database
+
+Use Meshery to deploy an Amazon RDS PostgreSQL database:
+
+<Tabs>
+  <Tab title="Kanvas (Visual)">
+    1. Open Kanvas designer
+    2. Search for "RDS" in components
+    3. Drag **DBInstance** onto canvas
+    4. Configure properties:
+       - Engine: postgres
+       - Instance class: db.t3.micro
+       - Allocated storage: 20GB
+       - Master username: admin
+    5. Add **DBSubnetGroup** for VPC configuration
+    6. Connect to Kubernetes **Secret** for credentials
+    7. Click **Deploy** to create the RDS instance
+  </Tab>
+  <Tab title="YAML Configuration">
+    ```yaml
+    apiVersion: rds.services.k8s.aws/v1alpha1
+    kind: DBInstance
+    metadata:
+      name: my-postgres-db
+      namespace: default
+    spec:
+      allocatedStorage: 20
+      dbInstanceClass: db.t3.micro
+      dbInstanceIdentifier: my-postgres-db
+      engine: postgres
+      engineVersion: "14.7"
+      masterUsername: admin
+      masterUserPassword:
+        name: db-credentials
+        key: password
+      dbSubnetGroupName: my-subnet-group
+      vpcSecurityGroupIDs:
+        - sg-0123456789abcdef0
+      publiclyAccessible: false
+      storageEncrypted: true
+    ---
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      name: db-credentials
+    type: Opaque
+    stringData:
+      password: super-secret-password
+    ```
+
+    Apply via Meshery:
+    1. Go to **Lifecycle** > **Configuration**
+    2. Paste YAML above
+    3. Click **Apply Configuration**
+  </Tab>
+</Tabs>
+
+### Relationships: AWS and Kubernetes
+
+Meshery understands relationships between AWS and Kubernetes resources:
+
+- **DBInstance → Secret**: RDS credentials stored in Kubernetes Secret
+- **DBInstance → DBSubnetGroup**: RDS instance placement in VPC subnets
+- **LoadBalancer → Service**: AWS ALB/NLB created for Kubernetes Service
+- **IAM Role → ServiceAccount**: IRSA binding for pod-level AWS permissions
+
+### Supported ACK Controllers
+
+Meshery supports all ACK controllers, including:
+
+- **rds-controller**: Amazon RDS
+- **s3-controller**: Amazon S3
+- **eks-controller**: Amazon EKS
+- **dynamodb-controller**: Amazon DynamoDB
+- **elasticache-controller**: Amazon ElastiCache
+- **lambda-controller**: AWS Lambda
+- **sns-controller**: Amazon SNS
+- **sqs-controller**: Amazon SQS
+
+## GCP Integration
+
+Meshery integrates with Google Cloud Platform through **Config Connector**, which allows you to manage GCP resources as Kubernetes objects.
+
+### Supported GCP Services
+
+<Tabs>
+  <Tab title="Compute">
+    - **Google Kubernetes Engine (GKE)**: Managed Kubernetes
+    - **Compute Engine**: Virtual machines
+    - **Cloud Functions**: Serverless functions
+    - **Cloud Run**: Serverless containers
+  </Tab>
+  <Tab title="Databases">
+    - **Cloud SQL**: Managed MySQL, PostgreSQL, SQL Server
+    - **Cloud Spanner**: Global distributed database
+    - **Firestore**: NoSQL document database
+    - **Cloud Bigtable**: Wide-column database
+  </Tab>
+  <Tab title="Storage">
+    - **Cloud Storage**: Object storage
+    - **Persistent Disk**: Block storage
+    - **Filestore**: File storage
+  </Tab>
+  <Tab title="Networking">
+    - **Virtual Private Cloud (VPC)**: Network configuration
+    - **Cloud Load Balancing**: HTTP(S) and TCP/UDP load balancers
+    - **Cloud DNS**: DNS service
+  </Tab>
+</Tabs>
+
+### Installation
+
+#### Prerequisites
+
+- GCP project with billing enabled
+- GKE cluster
+- `gcloud` CLI configured
+- Service account with appropriate permissions
+
+#### Setup Config Connector
+
+<Steps>
+  <Step title="Enable Config Connector on GKE">
+    ```bash
+    gcloud container clusters update CLUSTER_NAME \
+      --update-addons ConfigConnector=ENABLED \
+      --region REGION
+    ```
+  </Step>
+  <Step title="Create Service Account">
+    ```bash
+    gcloud iam service-accounts create config-connector \
+      --display-name="Config Connector Service Account"
+
+    gcloud projects add-iam-policy-binding PROJECT_ID \
+      --member="serviceAccount:config-connector@PROJECT_ID.iam.gserviceaccount.com" \
+      --role="roles/owner"
+    ```
+  </Step>
+  <Step title="Configure Workload Identity">
+    ```bash
+    gcloud iam service-accounts add-iam-policy-binding \
+      config-connector@PROJECT_ID.iam.gserviceaccount.com \
+      --member="serviceAccount:PROJECT_ID.svc.id.goog[cnrm-system/cnrm-controller-manager]" \
+      --role="roles/iam.workloadIdentityUser"
+    ```
+  </Step>
+  <Step title="Connect Meshery">
+    Connect your GKE cluster to Meshery. Config Connector CRDs will be automatically discovered.
+  </Step>
+</Steps>
+
+### Example: Deploy Cloud SQL Instance
+
+```yaml
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLInstance
+metadata:
+  name: my-cloudsql-instance
+  namespace: default
+spec:
+  databaseVersion: POSTGRES_14
+  region: us-central1
+  settings:
+    tier: db-f1-micro
+    ipConfiguration:
+      ipv4Enabled: true
+      authorizedNetworks:
+        - name: allow-all
+          value: 0.0.0.0/0
+---
+apiVersion: sql.cnrm.cloud.google.com/v1beta1
+kind: SQLDatabase
+metadata:
+  name: my-database
+spec:
+  instanceRef:
+    name: my-cloudsql-instance
+```
+
+Apply this configuration in Meshery to create a Cloud SQL instance and database.
+
+### GCP Components in Kanvas
+
+Search for GCP components in Kanvas:
+
+- SQLInstance, SQLDatabase, SQLUser
+- StorageBucket
+- ComputeInstance, ComputeDisk
+- PubSubTopic, PubSubSubscription
+- IAMServiceAccount, IAMPolicy
+
+## Azure Integration
+
+Meshery integrates with Microsoft Azure through **Azure Service Operator (ASO)**, which provides Kubernetes CRDs for Azure services.
+
+### Supported Azure Services
+
+<Tabs>
+  <Tab title="Compute & Containers">
+    - **Azure Kubernetes Service (AKS)**: Managed Kubernetes
+    - **Azure Container Instances**: Serverless containers
+    - **Azure Functions**: Serverless functions
+    - **Virtual Machines**: Compute instances
+  </Tab>
+  <Tab title="Databases">
+    - **Azure SQL Database**: Managed SQL database
+    - **Azure Database for PostgreSQL**: Managed PostgreSQL
+    - **Azure Database for MySQL**: Managed MySQL
+    - **Azure Cosmos DB**: Multi-model database
+  </Tab>
+  <Tab title="Storage">
+    - **Azure Storage Account**: Blob, File, Queue, Table storage
+    - **Azure Disk**: Block storage
+    - **Azure Files**: File shares
+  </Tab>
+  <Tab title="Networking">
+    - **Virtual Network**: Network configuration
+    - **Load Balancer**: Layer 4 load balancing
+    - **Application Gateway**: Layer 7 load balancing
+    - **Azure DNS**: DNS service
+  </Tab>
+</Tabs>
+
+### Installation
+
+#### Prerequisites
+
+- Azure subscription
+- AKS cluster or Kubernetes cluster with Azure access
+- Azure CLI installed
+- Service Principal or Managed Identity
+
+#### Setup Azure Service Operator
+
+<Steps>
+  <Step title="Install ASO">
+    ```bash
+    # Install cert-manager (required by ASO)
+    kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
+
+    # Install Azure Service Operator
+    kubectl apply -f https://github.com/Azure/azure-service-operator/releases/download/v2.13.0/azureserviceoperator_v2.13.0.yaml
+    ```
+  </Step>
+  <Step title="Create Service Principal">
+    ```bash
+    az ad sp create-for-rbac --name meshery-aso \
+      --role Contributor \
+      --scopes /subscriptions/SUBSCRIPTION_ID
+    ```
+
+    Save the output (appId, password, tenant).
+  </Step>
+  <Step title="Create Kubernetes Secret">
+    ```bash
+    kubectl create namespace azureserviceoperator-system
+
+    kubectl create secret generic azureoperator-secret \
+      --namespace azureserviceoperator-system \
+      --from-literal=AZURE_SUBSCRIPTION_ID=SUBSCRIPTION_ID \
+      --from-literal=AZURE_TENANT_ID=TENANT_ID \
+      --from-literal=AZURE_CLIENT_ID=CLIENT_ID \
+      --from-literal=AZURE_CLIENT_SECRET=CLIENT_SECRET
+    ```
+  </Step>
+  <Step title="Connect Meshery">
+    Connect your AKS cluster to Meshery. ASO CRDs will be discovered automatically.
+  </Step>
+</Steps>
+
+### Example: Deploy Azure Storage Account
+
+See the complete tutorial: [Deploy Azure Storage Account with Meshery](/guides/tutorials/azure/deploy-azure-storage-account-with-meshery)
+
+**Quick Example**:
+
+```yaml
+apiVersion: resources.azure.com/v1api20200601
+kind: ResourceGroup
+metadata:
+  name: my-resource-group
+  namespace: default
+spec:
+  location: eastus
+---
+apiVersion: storage.azure.com/v1api20210401
+kind: StorageAccount
+metadata:
+  name: mystorageaccount123
+  namespace: default
+spec:
+  location: eastus
+  kind: StorageV2
+  sku:
+    name: Standard_LRS
+  owner:
+    name: my-resource-group
+```
+
+Deploy via Meshery Kanvas or apply the YAML directly.
+
+### Azure Components in Kanvas
+
+Available Azure components:
+
+- ResourceGroup
+- StorageAccount, BlobService, FileShare
+- SQLServer, SQLDatabase
+- PostgreSQLServer, PostgreSQLDatabase
+- VirtualNetwork, Subnet, NetworkInterface
+- ManagedCluster (AKS)
+
+## Multi-Cloud Patterns
+
+Meshery enables multi-cloud designs:
+
+### Example: Multi-Cloud Database Deployment
+
+Create a pattern that deploys databases on all three providers:
+
+1. **AWS RDS**: Primary database in us-east-1
+2. **GCP Cloud SQL**: Read replica in us-central1
+3. **Azure SQL Database**: Read replica in eastus
+4. **Application**: Kubernetes Deployment that connects to nearest database
+
+Design this entire architecture in Kanvas and deploy with one click.
+
+### Cross-Cloud Relationships
+
+Meshery can model relationships across clouds:
+
+- Kubernetes Pod → AWS RDS (via Secret)
+- Kubernetes Pod → GCP Cloud Storage (via Service Account)
+- Kubernetes Service → Azure Front Door (via Ingress)
+
+## Configuration Examples
+
+### AWS Lambda Function Triggered by S3
+
+```yaml
+apiVersion: s3.services.k8s.aws/v1alpha1
+kind: Bucket
+metadata:
+  name: my-uploads-bucket
+spec:
+  name: my-uploads-bucket-12345
+---
+apiVersion: lambda.services.k8s.aws/v1alpha1
+kind: Function
+metadata:
+  name: process-upload
+spec:
+  name: process-upload
+  runtime: python3.9
+  handler: index.handler
+  code:
+    zipFile: |
+      def handler(event, context):
+          print(f"Processing file: {event['Records'][0]['s3']['object']['key']}")
+          return {'statusCode': 200}
+  role:
+    arn: arn:aws:iam::ACCOUNT_ID:role/lambda-execution-role
+---
+apiVersion: s3.services.k8s.aws/v1alpha1
+kind: BucketNotification
+metadata:
+  name: upload-notification
+spec:
+  bucket: my-uploads-bucket-12345
+  lambdaFunctionConfigurations:
+    - events:
+        - s3:ObjectCreated:*
+      lambdaFunctionARN: arn:aws:lambda:REGION:ACCOUNT_ID:function:process-upload
+```
+
+### GCP Pub/Sub with Cloud Function
+
+```yaml
+apiVersion: pubsub.cnrm.cloud.google.com/v1beta1
+kind: PubSubTopic
+metadata:
+  name: events-topic
+---
+apiVersion: pubsub.cnrm.cloud.google.com/v1beta1
+kind: PubSubSubscription
+metadata:
+  name: events-subscription
+spec:
+  topicRef:
+    name: events-topic
+  ackDeadlineSeconds: 20
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Kubernetes Secrets for Credentials">
+    Never hardcode cloud credentials in YAML. Store them in Kubernetes Secrets and reference them:
+
+    ```yaml
+    spec:
+      masterUserPassword:
+        name: db-credentials
+        key: password
+    ```
+  </Accordion>
+
+  <Accordion title="Enable Deletion Protection">
+    For production databases and storage, enable deletion protection:
+
+    ```yaml
+    spec:
+      deletionProtection: true
+    ```
+  </Accordion>
+
+  <Accordion title="Use GitOps for Cloud Resources">
+    Store cloud resource definitions in Git alongside Kubernetes manifests. Use CI/CD pipelines to apply changes.
+  </Accordion>
+
+  <Accordion title="Tag Resources Properly">
+    Add tags/labels to cloud resources for cost allocation and management:
+
+    ```yaml
+    spec:
+      tags:
+        - key: Environment
+          value: Production
+        - key: ManagedBy
+          value: Meshery
+    ```
+  </Accordion>
+
+  <Accordion title="Namespace Isolation">
+    Use Kubernetes namespaces to separate environments:
+
+    - `production`: Production cloud resources
+    - `staging`: Staging resources
+    - `development`: Dev resources
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="ACK Controller Not Creating Resources">
+    **Problem**: AWS resources not being created
+
+    **Solutions**:
+    - Check IAM permissions for the controller service account
+    - Review controller logs: `kubectl logs -n ack-system deployment/ack-<service>-controller`
+    - Verify AWS region is correct
+    - Check for API rate limiting
+  </Accordion>
+
+  <Accordion title="Config Connector Errors (GCP)">
+    **Problem**: GCP resources failing to create
+
+    **Solutions**:
+    - Verify Workload Identity is configured correctly
+    - Check service account permissions in GCP
+    - Review Config Connector logs: `kubectl logs -n cnrm-system deployment/cnrm-controller-manager`
+    - Ensure GCP APIs are enabled for your project
+  </Accordion>
+
+  <Accordion title="Azure Service Operator Reconciliation Failures">
+    **Problem**: Azure resources stuck in provisioning state
+
+    **Solutions**:
+    - Verify Azure credentials in the secret
+    - Check ASO controller logs: `kubectl logs -n azureserviceoperator-system deployment/azureserviceoperator-controller-manager`
+    - Ensure subscription has quota for requested resources
+    - Review Azure Activity Log for detailed errors
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Kubernetes Integration" icon="dharmachakra" href="/integrations/kubernetes">
+    Learn about Kubernetes platform integration
+  </Card>
+  <Card title="Service Meshes" icon="network-wired" href="/integrations/service-meshes">
+    Add service mesh to your cloud infrastructure
+  </Card>
+  <Card title="Design Patterns" icon="diagram-project" href="/guides/patterns">
+    Explore multi-cloud design patterns
+  </Card>
+  <Card title="Azure Tutorial" icon="microsoft" href="/guides/tutorials/azure/deploy-azure-storage-account-with-meshery">
+    Complete Azure Storage Account tutorial
+  </Card>
+</CardGroup>

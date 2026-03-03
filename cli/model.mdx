@@ -1,0 +1,454 @@
+---
+title: mesheryctl model
+description: Manage infrastructure models in the Meshery registry
+---
+
+The `model` command manages infrastructure models, which define the types of components and their relationships available in Meshery.
+
+## Synopsis
+
+```bash
+mesheryctl model [subcommand] [flags]
+```
+
+## Subcommands
+
+- `list` - List all available models
+- `view` - View model details
+- `search` - Search for models by name or category
+- `import` - Import models from files or URLs
+- `export` - Export models to files
+- `delete` - Delete a model from the registry
+- `generate` - Generate models from source definitions
+- `init` - Initialize a new model structure
+- `build` - Build OCI-compliant model packages
+
+## Global Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display total count of models
+</ParamField>
+
+## list
+
+List all available infrastructure models.
+
+### Usage
+
+```bash
+mesheryctl model list [flags]
+```
+
+### Flags
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of models per page
+</ParamField>
+
+<ParamField path="--count" type="boolean" default="false">
+  Display only the count of models
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Models
+# List all models
+mesheryctl model list
+
+# Get model count
+mesheryctl model list --count
+```
+
+```bash Pagination
+# List first page
+mesheryctl model list --page 1 --page-size 50
+
+# List next page
+mesheryctl model list --page 2
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+MODEL                  CATEGORY              VERSION
+Kubernetes             Orchestration         v1.28.0
+Istio                  Service Mesh          1.19.0
+Prometheus             Observability         v2.45.0
+NGINX Ingress          Network               1.9.0
+
+Total: 250 models
+```
+
+## view
+
+Display detailed information about a model.
+
+### Usage
+
+```bash
+mesheryctl model view [model-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="yaml">
+  Output format: `yaml`, `json`. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash View Model
+# View model in YAML
+mesheryctl model view Kubernetes
+
+# View in JSON format
+mesheryctl model view Istio -o json
+```
+</CodeGroup>
+
+### Sample Output
+
+```yaml
+name: Kubernetes
+category: Orchestration
+version: v1.28.0
+displayName: Kubernetes
+components:
+  - Pod
+  - Service
+  - Deployment
+  - ConfigMap
+relationships: 45
+metadata:
+  source: kubernetes.io
+  published: true
+```
+
+## search
+
+Search for models by name, category, or other attributes.
+
+### Usage
+
+```bash
+mesheryctl model search [search-term] [flags]
+```
+
+### Flags
+
+<ParamField path="--category" type="string">
+  Filter by category
+</ParamField>
+
+<ParamField path="--version" type="string">
+  Filter by version
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Search by Name
+# Search for Kubernetes models
+mesheryctl model search kubernetes
+
+# Search for service mesh models
+mesheryctl model search --category "Service Mesh"
+```
+
+```bash Advanced Search
+# Search by version
+mesheryctl model search istio --version 1.19.0
+
+# Combine filters
+mesheryctl model search --category Observability
+```
+</CodeGroup>
+
+## import
+
+Import models from files or URLs.
+
+### Usage
+
+```bash
+mesheryctl model import [flags]
+```
+
+### Flags
+
+<ParamField path="--file" type="string" required>
+  Path to model file or URL. Short form: `-f`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Import from File
+# Import a model file
+mesheryctl model import -f model.yaml
+
+# Import from directory
+mesheryctl model import -f ./models/
+```
+
+```bash Import from URL
+# Import from GitHub
+mesheryctl model import -f https://raw.githubusercontent.com/org/repo/main/model.yaml
+```
+</CodeGroup>
+
+<Note>
+Imported models are validated against the Meshery schema before being added to the registry.
+</Note>
+
+## export
+
+Export models to files.
+
+### Usage
+
+```bash
+mesheryctl model export [model-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="./model.yaml">
+  Output file path. Short form: `-o`
+</ParamField>
+
+### Examples
+
+```bash
+# Export model to file
+mesheryctl model export Kubernetes -o k8s-model.yaml
+
+# Export to directory
+mesheryctl model export Istio -o ./exports/
+```
+
+## delete
+
+Delete a model from the registry.
+
+### Usage
+
+```bash
+mesheryctl model delete [model-id] [flags]
+```
+
+### Examples
+
+```bash
+# Delete by ID
+mesheryctl model delete 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+```
+
+<Note>
+Only custom models can be deleted. Built-in models registered by Meshery cannot be removed.
+</Note>
+
+## generate
+
+Generate models from source definitions.
+
+### Usage
+
+```bash
+mesheryctl model generate [flags]
+```
+
+### Flags
+
+<ParamField path="--source" type="string" required>
+  Source to generate from (e.g., OpenAPI spec, Helm chart)
+</ParamField>
+
+<ParamField path="--output" type="string" default="./">
+  Output directory for generated model. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Generate from OpenAPI
+# Generate from OpenAPI specification
+mesheryctl model generate --source api-spec.yaml -o ./models
+```
+
+```bash Generate from Helm
+# Generate from Helm chart
+mesheryctl model generate --source ./chart -o ./models
+```
+</CodeGroup>
+
+## init
+
+Scaffold a new model directory structure.
+
+### Usage
+
+```bash
+mesheryctl model init [model-name] [flags]
+```
+
+### Examples
+
+```bash
+# Initialize new model structure
+mesheryctl model init my-custom-model
+
+# Creates:
+# my-custom-model/
+#   ├── model.yaml
+#   ├── components/
+#   └── relationships/
+```
+
+### Generated Structure
+
+```
+my-custom-model/
+├── model.yaml              # Model definition
+├── components/             # Component definitions
+│   └── example.yaml
+└── relationships/          # Relationship definitions
+    └── example.yaml
+```
+
+## build
+
+Build OCI-compliant packages from model files.
+
+### Usage
+
+```bash
+mesheryctl model build [model-name] [flags]
+mesheryctl model build [model-name]/[model-version] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="./">
+  Output directory for the OCI package. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Build Package
+# Build latest version
+mesheryctl model build my-model
+
+# Build specific version
+mesheryctl model build my-model/v1.0.0
+```
+
+```bash Custom Output
+# Build to specific directory
+mesheryctl model build my-model -o ./packages/
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Building OCI package for my-model...
+Packaging components: 15
+Packaging relationships: 8
+Package created: ./my-model-v1.0.0.tar.gz
+```
+
+## Count Models
+
+Display the total number of registered models.
+
+### Usage
+
+```bash
+mesheryctl model --count
+```
+
+### Example Output
+
+```
+Total models: 250
+```
+
+## Model Categories
+
+Models are organized into categories:
+
+- **Orchestration** - Container orchestration platforms (Kubernetes, Docker Swarm)
+- **Service Mesh** - Service mesh technologies (Istio, Linkerd, Consul)
+- **Observability** - Monitoring and logging (Prometheus, Grafana, Jaeger)
+- **Network** - Networking components (NGINX, Traefik, Cilium)
+- **Security** - Security tools (Falco, OPA, cert-manager)
+- **Storage** - Storage solutions (Rook, Longhorn, MinIO)
+- **Database** - Database systems (PostgreSQL, MySQL, Redis)
+
+## Model Structure
+
+A model definition includes:
+
+```yaml
+name: MyModel
+version: 1.0.0
+category: Orchestration
+displayName: My Custom Model
+metadata:
+  description: Custom infrastructure model
+  source: custom
+components:
+  - name: MyComponent
+    version: 1.0.0
+    kind: Deployment
+relationships:
+  - name: ComponentBinding
+    type: edge
+```
+
+## Troubleshooting
+
+### Import Fails
+
+```bash
+# Validate model syntax
+mesheryctl model view my-model -o yaml
+
+# Check for schema violations
+# Ensure model follows Meshery model schema
+```
+
+### Model Not Found
+
+```bash
+# List all models
+mesheryctl model list
+
+# Search for model
+mesheryctl model search my-model
+```
+
+### Build Errors
+
+```bash
+# Verify model structure
+ls -R my-model/
+
+# Ensure model.yaml exists and is valid
+cat my-model/model.yaml
+```
+
+## See Also
+
+- [Components Command](/cli/components) - Manage model components
+- [Relationships Command](/cli/relationships) - Manage component relationships
+- [Registry Command](/cli/registry) - Manage the capability registry

@@ -1,0 +1,638 @@
+---
+title: Prometheus and Grafana Integration
+description: Observability with Prometheus metrics and Grafana dashboards
+---
+
+# Prometheus and Grafana Integration
+
+Meshery integrates with Prometheus and Grafana to provide comprehensive observability for your infrastructure and applications. Collect metrics, visualize performance data, and gain insights into the behavior of your service meshes, Kubernetes clusters, and workloads.
+
+## Overview
+
+Meshery's observability integrations enable:
+
+- **Metrics Collection**: Connect to Prometheus for infrastructure and application metrics
+- **Dashboard Visualization**: Import and view Grafana dashboards in Meshery
+- **Performance Testing**: Correlate load test results with system metrics
+- **Historical Analysis**: Track performance trends over time
+- **Multi-Cluster Monitoring**: Aggregate metrics from multiple clusters
+
+<CardGroup cols={2}>
+  <Card title="Prometheus" icon="chart-line">
+    Time-series database for metrics collection and querying
+  </Card>
+  <Card title="Grafana" icon="chart-area">
+    Visualization platform for creating and viewing dashboards
+  </Card>
+</CardGroup>
+
+## Prometheus Integration
+
+Prometheus is an open-source monitoring system that collects and stores metrics as time-series data.
+
+### Installation
+
+#### Deploy Prometheus to Kubernetes
+
+<Tabs>
+  <Tab title="Helm">
+    ```bash
+    # Add Prometheus Helm repository
+    helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+    helm repo update
+
+    # Install Prometheus
+    helm install prometheus prometheus-community/prometheus \
+      --namespace monitoring \
+      --create-namespace \
+      --set server.persistentVolume.enabled=true \
+      --set server.persistentVolume.size=10Gi
+    ```
+  </Tab>
+  <Tab title="Kubernetes Manifests">
+    ```bash
+    # Create monitoring namespace
+    kubectl create namespace monitoring
+
+    # Deploy Prometheus
+    kubectl apply -f https://raw.githubusercontent.com/meshery/meshery/master/install/playground/kubernetes/prometheus.yaml
+    ```
+  </Tab>
+  <Tab title="Meshery Service Mesh Add-on">
+    For service meshes like Istio, deploy Prometheus as an add-on:
+
+    1. Navigate to **Lifecycle** > **Adapters**
+    2. Select your service mesh adapter (e.g., Meshery Adapter for Istio)
+    3. Click **Manage Add-ons**
+    4. Enable **Prometheus**
+    5. Click **Apply** to deploy
+
+    Meshery will deploy Prometheus into the service mesh control plane namespace (e.g., `istio-system`).
+  </Tab>
+</Tabs>
+
+#### Verify Prometheus Installation
+
+```bash
+# Check Prometheus pod status
+kubectl get pods -n monitoring -l app=prometheus
+
+# Port-forward to access Prometheus UI
+kubectl port-forward -n monitoring svc/prometheus-server 9090:80
+```
+
+Access Prometheus at `http://localhost:9090`.
+
+### Connect Prometheus to Meshery
+
+<Steps>
+  <Step title="Navigate to Settings">
+    In Meshery UI, go to **Settings** > **Metrics**.
+  </Step>
+  <Step title="Add Prometheus Connection">
+    Click **+** to add a new Prometheus connection.
+  </Step>
+  <Step title="Enter Prometheus URL">
+    Provide the Prometheus server URL:
+
+    - **In-cluster**: `http://prometheus-server.monitoring:80`
+    - **Port-forwarded**: `http://localhost:9090`
+    - **External**: `https://prometheus.example.com`
+  </Step>
+  <Step title="Test Connection">
+    Click **Test** to verify Meshery can reach Prometheus.
+  </Step>
+  <Step title="Save Connection">
+    Click **Save** to persist the configuration.
+  </Step>
+</Steps>
+
+### Auto-Discovery
+
+Meshery's **MeshSync** component automatically discovers Prometheus instances running in connected Kubernetes clusters. If Prometheus is detected, Meshery will attempt to register it for use.
+
+Verify auto-discovered Prometheus connections in **Settings** > **Metrics**.
+
+### Prometheus Configuration
+
+#### Scrape Kubernetes Metrics
+
+Configure Prometheus to scrape metrics from Kubernetes services:
+
+```yaml
+scrape_configs:
+  - job_name: 'kubernetes-pods'
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+```
+
+#### Scrape Service Mesh Metrics
+
+For Istio, Prometheus scrapes Envoy sidecar metrics:
+
+```yaml
+scrape_configs:
+  - job_name: 'envoy-stats'
+    metrics_path: /stats/prometheus
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_container_port_name]
+        action: keep
+        regex: '.*-envoy-prom'
+```
+
+### Prometheus Queries in Meshery
+
+Meshery uses Prometheus queries to collect metrics during performance tests:
+
+#### Node Metrics
+
+```promql
+# CPU usage by node
+sum(rate(node_cpu_seconds_total{mode!="idle"}[5m])) by (instance)
+
+# Memory usage by node
+node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+
+# Network I/O
+rate(node_network_receive_bytes_total[5m])
+rate(node_network_transmit_bytes_total[5m])
+```
+
+#### Pod Metrics
+
+```promql
+# CPU usage by pod
+sum(rate(container_cpu_usage_seconds_total{pod=~"my-app-.*"}[5m])) by (pod)
+
+# Memory usage by pod
+sum(container_memory_working_set_bytes{pod=~"my-app-.*"}) by (pod)
+```
+
+#### Service Mesh Metrics (Istio)
+
+```promql
+# Request rate
+sum(rate(istio_requests_total[5m])) by (destination_service)
+
+# Request latency (p95)
+histogram_quantile(0.95, sum(rate(istio_request_duration_milliseconds_bucket[5m])) by (le))
+
+# Error rate
+sum(rate(istio_requests_total{response_code=~"5.."}[5m])) by (destination_service)
+```
+
+### Performance Testing with Prometheus
+
+When running performance tests, Meshery automatically queries Prometheus for system metrics:
+
+<Steps>
+  <Step title="Start Performance Test">
+    Navigate to **Performance** and configure your load test.
+  </Step>
+  <Step title="Select Prometheus">
+    Choose the connected Prometheus instance for metrics collection.
+  </Step>
+  <Step title="Run Test">
+    Execute the performance test. Meshery generates load using Fortio, Wrk2, or Nighthawk.
+  </Step>
+  <Step title="Collect Metrics">
+    During the test, Meshery queries Prometheus for:
+    - Node CPU and memory usage
+    - Pod resource consumption
+    - Network I/O
+    - Service mesh metrics (if applicable)
+  </Step>
+  <Step title="View Results">
+    After the test completes, view results with correlated metrics:
+    - Request latency percentiles (p50, p90, p99)
+    - Throughput (requests per second)
+    - Error rate
+    - Resource utilization graphs
+  </Step>
+</Steps>
+
+## Grafana Integration
+
+Grafana is an open-source platform for visualizing metrics and creating dashboards.
+
+### Installation
+
+#### Deploy Grafana to Kubernetes
+
+<Tabs>
+  <Tab title="Helm">
+    ```bash
+    # Add Grafana Helm repository
+    helm repo add grafana https://grafana.github.io/helm-charts
+    helm repo update
+
+    # Install Grafana
+    helm install grafana grafana/grafana \
+      --namespace monitoring \
+      --set persistence.enabled=true \
+      --set persistence.size=10Gi \
+      --set adminPassword=admin
+    ```
+  </Tab>
+  <Tab title="Kubernetes Manifests">
+    ```bash
+    kubectl apply -f https://raw.githubusercontent.com/grafana/grafana/main/deploy/kubernetes/grafana-deployment.yaml
+    ```
+  </Tab>
+  <Tab title="Service Mesh Add-on">
+    Deploy Grafana as a service mesh add-on (e.g., with Istio):
+
+    1. Navigate to **Lifecycle** > **Adapters**
+    2. Select your service mesh adapter
+    3. Click **Manage Add-ons**
+    4. Enable **Grafana**
+    5. Click **Apply**
+  </Tab>
+</Tabs>
+
+#### Verify Grafana Installation
+
+```bash
+# Check Grafana pod status
+kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana
+
+# Get admin password (if using Helm)
+kubectl get secret -n monitoring grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo
+
+# Port-forward to access Grafana UI
+kubectl port-forward -n monitoring svc/grafana 3000:80
+```
+
+Access Grafana at `http://localhost:3000` (username: `admin`).
+
+### Connect Grafana to Meshery
+
+<Steps>
+  <Step title="Navigate to Settings">
+    In Meshery UI, go to **Settings** > **Metrics**.
+  </Step>
+  <Step title="Add Grafana Connection">
+    Click **+** to add a new Grafana connection.
+  </Step>
+  <Step title="Enter Grafana Details">
+    Provide:
+    - **Grafana URL**: `http://grafana.monitoring:80` or `http://localhost:3000`
+    - **API Key**: Generate in Grafana (Settings > API Keys)
+  </Step>
+  <Step title="Test Connection">
+    Click **Test** to verify connectivity.
+  </Step>
+  <Step title="Save Connection">
+    Click **Save** to complete setup.
+  </Step>
+</Steps>
+
+### Configure Prometheus as Grafana Data Source
+
+In Grafana, add Prometheus as a data source:
+
+<Steps>
+  <Step title="Open Data Sources">
+    In Grafana UI, go to **Configuration** > **Data Sources**.
+  </Step>
+  <Step title="Add Prometheus">
+    Click **Add data source** and select **Prometheus**.
+  </Step>
+  <Step title="Configure Connection">
+    - **URL**: `http://prometheus-server.monitoring:80`
+    - **Access**: Server (default)
+  </Step>
+  <Step title="Test and Save">
+    Click **Save & Test** to verify the connection.
+  </Step>
+</Steps>
+
+### Import Dashboards
+
+Grafana provides pre-built dashboards for Kubernetes and service meshes.
+
+#### Kubernetes Cluster Monitoring
+
+```bash
+# Import Kubernetes cluster dashboard (ID: 7249)
+# In Grafana UI: + > Import > Dashboard ID: 7249
+```
+
+Popular Kubernetes dashboards:
+
+- **Kubernetes Cluster Monitoring** (ID: 7249)
+- **Kubernetes Pod Metrics** (ID: 6417)
+- **Node Exporter Full** (ID: 1860)
+
+#### Istio Service Mesh Dashboards
+
+```bash
+# Import Istio dashboards
+# In Grafana UI: + > Import > Dashboard ID: 7636 (Istio Control Plane)
+# In Grafana UI: + > Import > Dashboard ID: 7630 (Istio Service Dashboard)
+```
+
+Istio dashboards:
+
+- **Istio Control Plane Dashboard** (ID: 7636)
+- **Istio Service Dashboard** (ID: 7630)
+- **Istio Workload Dashboard** (ID: 7630)
+- **Istio Mesh Dashboard** (ID: 7639)
+
+### View Dashboards in Meshery
+
+Meshery can display Grafana dashboards directly in the UI:
+
+1. Navigate to **Performance** > **Metrics**
+2. Select a connected Grafana instance
+3. Choose a dashboard from the list
+4. View dashboard panels embedded in Meshery
+
+This allows you to see performance metrics alongside load test results.
+
+## Observability Stack Setup
+
+Deploy a complete observability stack with Prometheus, Grafana, and additional tools.
+
+### Kube-Prometheus Stack
+
+The **kube-prometheus-stack** includes:
+
+- Prometheus Operator
+- Prometheus
+- Alertmanager
+- Grafana
+- Node Exporter
+- Kube-State-Metrics
+- Pre-configured dashboards and alerts
+
+#### Installation
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+  --set grafana.adminPassword=admin
+```
+
+#### Access Components
+
+```bash
+# Prometheus
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
+
+# Grafana
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# Alertmanager
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-alertmanager 9093:9093
+```
+
+### Service Mesh Observability
+
+For service meshes, deploy the full observability suite:
+
+**Istio Add-ons**:
+
+```bash
+# Deploy Prometheus, Grafana, Jaeger, and Kiali
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.20/samples/addons/prometheus.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.20/samples/addons/grafana.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.20/samples/addons/jaeger.yaml
+kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.20/samples/addons/kiali.yaml
+```
+
+**Access Kiali (Service Mesh Dashboard)**:
+
+```bash
+kubectl port-forward -n istio-system svc/kiali 20001:20001
+```
+
+Open `http://localhost:20001` to view Kiali's service mesh visualization.
+
+## Metrics for Performance Testing
+
+Meshery collects the following metrics during performance tests:
+
+### Load Generator Metrics
+
+- **Request Latency**: p50, p75, p90, p95, p99 percentiles
+- **Throughput**: Requests per second (RPS)
+- **Error Rate**: Percentage of failed requests
+- **Connection Time**: Time to establish connections
+- **Response Size**: Bytes sent/received
+
+### System Metrics (via Prometheus)
+
+- **CPU Usage**: Per-node and per-pod CPU utilization
+- **Memory Usage**: Working set, RSS, cache
+- **Network I/O**: Bytes sent/received, packet rates
+- **Disk I/O**: Read/write operations and throughput
+
+### Service Mesh Metrics
+
+- **Request Volume**: Total requests per service
+- **Request Duration**: Latency distribution
+- **Response Codes**: 2xx, 3xx, 4xx, 5xx counts
+- **Circuit Breaker Status**: Open/closed state
+- **Connection Pool**: Active connections
+
+### Performance Profiles
+
+Meshery allows you to save **Performance Profiles** that include:
+
+- Load test configuration (URL, duration, concurrency)
+- Prometheus queries to collect
+- Expected performance baselines
+- Pass/fail criteria
+
+Reuse profiles to track performance over time and detect regressions.
+
+## Advanced Configuration
+
+### Custom Prometheus Queries
+
+Define custom Prometheus queries in Meshery:
+
+1. Go to **Performance** > **Metrics**
+2. Click **Add Query**
+3. Enter PromQL query:
+   ```promql
+   rate(http_requests_total{job="my-app"}[5m])
+   ```
+4. Save query with a descriptive name
+5. Query will be executed during performance tests
+
+### Alerting with Prometheus
+
+Configure alerts based on performance thresholds:
+
+```yaml
+groups:
+  - name: performance_alerts
+    interval: 30s
+    rules:
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(istio_request_duration_milliseconds_bucket[5m])) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High request latency detected"
+          description: "95th percentile latency is above 500ms"
+
+      - alert: HighErrorRate
+        expr: sum(rate(istio_requests_total{response_code=~"5.."}[5m])) / sum(rate(istio_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5%"
+```
+
+### Grafana Dashboards for Meshery
+
+Create custom Grafana dashboards for Meshery performance tests:
+
+1. **Load Test Results Panel**: Display RPS and latency over time
+2. **Resource Usage Panel**: Show CPU/memory consumption during tests
+3. **Service Mesh Panel**: Visualize traffic flow and error rates
+4. **Comparison Panel**: Compare multiple test runs side-by-side
+
+Export dashboards as JSON and share with your team.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Prometheus Connection Failed">
+    **Problem**: Meshery cannot connect to Prometheus
+
+    **Solutions**:
+    - Verify Prometheus is running: `kubectl get pods -n monitoring`
+    - Check Prometheus URL is correct (include protocol: `http://`)
+    - Ensure Prometheus is accessible from Meshery (network policies, firewalls)
+    - Test manually: `curl http://prometheus-server.monitoring/api/v1/query?query=up`
+  </Accordion>
+
+  <Accordion title="No Metrics During Performance Test">
+    **Problem**: Performance test completes but no Prometheus metrics collected
+
+    **Solutions**:
+    - Verify Prometheus connection is active in Meshery settings
+    - Check Prometheus has data for the time range of the test
+    - Ensure PromQL queries are valid
+    - Review Meshery server logs for errors
+  </Accordion>
+
+  <Accordion title="Grafana Dashboards Not Loading">
+    **Problem**: Cannot view Grafana dashboards in Meshery
+
+    **Solutions**:
+    - Verify Grafana API key has correct permissions (Viewer or Editor)
+    - Check Grafana URL is accessible from Meshery
+    - Ensure Grafana version is compatible (v7.0+)
+    - Test API key manually: `curl -H "Authorization: Bearer API_KEY" http://grafana/api/dashboards/home`
+  </Accordion>
+
+  <Accordion title="Missing Service Mesh Metrics">
+    **Problem**: Prometheus not collecting service mesh metrics
+
+    **Solutions**:
+    - Verify Prometheus scrape configuration includes service mesh jobs
+    - Check sidecar proxies are injected: `kubectl get pods -o jsonpath='{.items[*].spec.containers[*].name}'`
+    - Ensure Envoy metrics port is exposed (15090 for Istio)
+    - Review Prometheus targets: `http://prometheus:9090/targets`
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Accordion title="Retention and Storage">
+  Configure Prometheus retention based on your needs:
+
+  ```yaml
+  # Helm values
+  prometheus:
+    prometheusSpec:
+      retention: 30d
+      retentionSize: "50GB"
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 50Gi
+  ```
+
+  For long-term storage, use remote storage backends like Thanos or Cortex.
+</Accordion>
+
+<Accordion title="Resource Limits">
+  Set resource limits for Prometheus and Grafana:
+
+  ```yaml
+  prometheus:
+    prometheusSpec:
+      resources:
+        requests:
+          cpu: 500m
+          memory: 2Gi
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+  
+  grafana:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+  ```
+</Accordion>
+
+<Accordion title="Security">
+  - Enable authentication for Prometheus and Grafana
+  - Use RBAC to restrict access
+  - Configure TLS for encrypted communication
+  - Rotate Grafana API keys regularly
+  - Use network policies to limit access to monitoring namespace
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Performance Testing" icon="gauge" href="/guides/performance">
+    Learn how to run performance tests with Meshery
+  </Card>
+  <Card title="Service Mesh Monitoring" icon="network-wired" href="/integrations/service-meshes">
+    Monitor service mesh performance and health
+  </Card>
+  <Card title="Kubernetes Metrics" icon="dharmachakra" href="/integrations/kubernetes">
+    Collect and visualize Kubernetes cluster metrics
+  </Card>
+  <Card title="Cloud Native Performance" icon="chart-simple" href="https://smp-spec.io">
+    Learn about the Cloud Native Performance specification
+  </Card>
+</CardGroup>

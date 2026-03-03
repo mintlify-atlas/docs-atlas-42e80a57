@@ -1,0 +1,613 @@
+---
+title: Testing Guide
+description: Learn how to test your contributions to Meshery with unit tests, integration tests, and end-to-end tests.
+---
+
+Testing is a critical part of contributing to Meshery. This guide covers testing strategies, tools, and best practices for Go (server/CLI), JavaScript (UI), and integration testing.
+
+## Testing Philosophy
+
+Meshery follows a comprehensive testing strategy:
+
+- **Unit Tests** – Test individual functions and components in isolation
+- **Integration Tests** – Test interactions between components and services
+- **End-to-End Tests** – Test complete user workflows through the UI
+- **Coverage Goals** – Aim for ≥70% coverage on business logic
+
+## Go Testing (Server & CLI)
+
+### Unit Tests
+
+Go unit tests use the standard library `testing` package.
+
+**File naming:** Place tests in `*_test.go` files alongside the code they test.
+
+**Test naming:** Use descriptive names: `TestFunctionName_Scenario_ExpectedResult`
+
+**Example unit test:**
+
+```go
+// server/handlers/workspace_handler_test.go
+package handlers
+
+import (
+    "testing"
+)
+
+func TestValidateWorkspaceName_ValidName_ReturnsTrue(t *testing.T) {
+    valid := ValidateWorkspaceName("my-workspace")
+    if !valid {
+        t.Errorf("Expected valid=true, got valid=%v", valid)
+    }
+}
+
+func TestValidateWorkspaceName_EmptyName_ReturnsFalse(t *testing.T) {
+    valid := ValidateWorkspaceName("")
+    if valid {
+        t.Errorf("Expected valid=false, got valid=%v", valid)
+    }
+}
+```
+
+**Table-driven tests:**
+
+```go
+func TestValidateWorkspaceName(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    string
+        expected bool
+    }{
+        {"valid name", "my-workspace", true},
+        {"empty name", "", false},
+        {"too long", "a" + strings.Repeat("b", 100), false},
+        {"special chars", "my@workspace", false},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            result := ValidateWorkspaceName(tt.input)
+            if result != tt.expected {
+                t.Errorf("ValidateWorkspaceName(%q) = %v, want %v", tt.input, result, tt.expected)
+            }
+        })
+    }
+}
+```
+
+**Running unit tests:**
+
+```bash
+# Run all tests in current directory
+go test .
+
+# Run all tests recursively
+go test ./...
+
+# Run only short tests (skip integration tests)
+go test --short ./...
+
+# Run specific test
+go test -run TestValidateWorkspaceName
+
+# Run with coverage
+go test -cover ./...
+
+# Generate coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
+```
+
+### Mocking
+
+Use interfaces for mocking dependencies:
+
+```go
+// Define interface
+type WorkspaceProvider interface {
+    GetWorkspace(id string) (*Workspace, error)
+}
+
+// Mock implementation for tests
+type MockWorkspaceProvider struct {
+    workspace *Workspace
+    err       error
+}
+
+func (m *MockWorkspaceProvider) GetWorkspace(id string) (*Workspace, error) {
+    return m.workspace, m.err
+}
+
+// Use in test
+func TestGetWorkspaceHandler(t *testing.T) {
+    mockProvider := &MockWorkspaceProvider{
+        workspace: &Workspace{ID: "123", Name: "Test"},
+        err:       nil,
+    }
+    
+    handler := NewHandler(mockProvider)
+    // Test handler...
+}
+```
+
+### Integration Tests (Server)
+
+Integration tests verify interactions with external systems like Kubernetes and databases.
+
+**Location:** `server/integration-tests/`
+
+**MeshSync Integration Tests:**
+
+```bash
+# Check dependencies (Docker, kind, kubectl, helm)
+make server-integration-tests-meshsync-check-dependencies
+
+# Setup test environment
+make server-integration-tests-meshsync-setup
+
+# Run tests
+make server-integration-tests-meshsync-run
+
+# Cleanup
+make server-integration-tests-meshsync-cleanup
+
+# Full cycle (build + setup + run + cleanup)
+make server-integration-tests-meshsync
+```
+
+**What the setup does:**
+
+1. Creates a kind (Kubernetes in Docker) cluster
+2. Deploys Meshery Operator to the cluster
+3. Starts NATS messaging broker
+4. Configures connection between test cluster and Meshery Server
+
+**Writing integration tests:**
+
+```go
+// server/integration-tests/meshsync/meshsync_test.go
+// +build integration
+
+package meshsync
+
+import (
+    "os"
+    "testing"
+)
+
+func TestIntegration_MeshSyncDiscovery(t *testing.T) {
+    if os.Getenv("RUN_INTEGRATION_TESTS") != "true" {
+        t.Skip("Skipping integration test")
+    }
+    
+    // Test MeshSync discovery functionality
+    // ...
+}
+```
+
+**Run integration tests:**
+
+```bash
+RUN_INTEGRATION_TESTS=true go test -run Integration ./server/integration-tests/meshsync
+```
+
+### CLI Tests
+
+**Unit tests:**
+
+```bash
+cd mesheryctl
+go test --short ./...
+```
+
+**Integration tests:**
+
+```bash
+cd mesheryctl
+go test -run Integration ./...
+```
+
+**Full test suite:**
+
+```bash
+make mesheryctl-tests-int
+```
+
+**Example CLI test:**
+
+```go
+// mesheryctl/cmd/system/start_test.go
+func TestStartCommand_ValidPlatform_Succeeds(t *testing.T) {
+    cmd := StartCmd
+    cmd.SetArgs([]string{"--platform", "docker"})
+    
+    err := cmd.Execute()
+    if err != nil {
+        t.Errorf("StartCmd failed: %v", err)
+    }
+}
+```
+
+## JavaScript Testing (UI)
+
+### End-to-End Tests with Playwright
+
+Meshery UI uses Playwright for end-to-end testing.
+
+**Install Playwright:**
+
+```bash
+make test-setup-ui
+```
+
+This installs Playwright browsers (Chromium) with system dependencies.
+
+**Run E2E tests:**
+
+```bash
+# Interactive mode
+make ui-integration-tests
+
+# Or with npm
+cd ui
+npm run test:e2e
+
+# CI mode (non-interactive)
+make test-e2e-ci
+
+# Or with npm
+cd ui
+npm run test:e2e:ci
+```
+
+**Test file location:** `ui/tests/` or `ui/**/*.spec.js`
+
+**Example Playwright test:**
+
+```javascript
+// ui/tests/workspaces.spec.js
+import { test, expect } from '@playwright/test';
+
+test.describe('Workspace Management', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('http://localhost:3000');
+  });
+
+  test('should create a new workspace', async ({ page }) => {
+    // Navigate to workspaces page
+    await page.click('a:has-text("Workspaces")');
+    
+    // Click create button
+    await page.click('button:has-text("Create Workspace")');
+    
+    // Fill form
+    await page.fill('input[name="name"]', 'Test Workspace');
+    await page.fill('textarea[name="description"]', 'This is a test workspace');
+    
+    // Submit form
+    await page.click('button:has-text("Save")');
+    
+    // Verify workspace appears in list
+    await expect(page.locator('text=Test Workspace')).toBeVisible();
+  });
+
+  test('should filter workspaces', async ({ page }) => {
+    await page.goto('http://localhost:3000/workspaces');
+    
+    // Type in search box
+    await page.fill('input[placeholder="Search workspaces"]', 'Test');
+    
+    // Verify filtered results
+    const results = page.locator('[data-testid="workspace-card"]');
+    await expect(results).toHaveCount(1);
+  });
+
+  test('should delete workspace', async ({ page }) => {
+    await page.goto('http://localhost:3000/workspaces');
+    
+    // Click delete button
+    await page.click('[data-testid="delete-workspace-btn"]');
+    
+    // Confirm deletion
+    await page.click('button:has-text("Confirm")');
+    
+    // Verify workspace removed
+    await expect(page.locator('text=Test Workspace')).not.toBeVisible();
+  });
+});
+```
+
+**Playwright configuration:** `ui/playwright.config.js`
+
+```javascript
+import { defineConfig } from '@playwright/test';
+
+export default defineConfig({
+  testDir: './tests',
+  timeout: 30000,
+  use: {
+    baseURL: 'http://localhost:3000',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { browserName: 'chromium' },
+    },
+  ],
+});
+```
+
+**Best practices:**
+
+- Use `data-testid` attributes for selecting elements
+- Avoid hardcoded waits; use Playwright's auto-waiting
+- Test user workflows, not implementation details
+- Keep tests independent and idempotent
+- Use descriptive test names
+
+**Debugging Playwright tests:**
+
+```bash
+# Run in headed mode (show browser)
+npx playwright test --headed
+
+# Run in debug mode
+npx playwright test --debug
+
+# Run specific test file
+npx playwright test tests/workspaces.spec.js
+
+# Show test report
+npx playwright show-report
+```
+
+### Unit Tests (JavaScript)
+
+<Note>
+  JavaScript unit testing infrastructure is still being expanded. Playwright E2E tests are currently the primary testing method for UI.
+</Note>
+
+Future unit testing will likely use:
+
+- **Jest** – Testing framework
+- **React Testing Library** – Component testing
+
+## Continuous Integration Testing
+
+### GitHub Actions Workflows
+
+Meshery uses GitHub Actions for automated testing.
+
+**Workflows location:** `.github/workflows/`
+
+**Key workflows:**
+
+- `build-ui-and-server.yml` – Runs on PRs; includes linting, builds, and tests
+- `codeql-analysis.yml` – Security scanning
+- `test-e2e.yml` – End-to-end tests
+
+**What runs on PR:**
+
+1. **Linting:**
+   - `make golangci` for Go code
+   - `make ui-lint` for JavaScript code
+
+2. **Builds:**
+   - `make build-server` for server
+   - `make ui-build` for UI
+   - `cd mesheryctl && make` for CLI
+
+3. **Tests:**
+   - `go test --short ./...` for unit tests
+   - `make ui-integration-tests` for E2E tests
+
+**View CI results:**
+
+Go to your PR on GitHub and click "Checks" to see test results.
+
+## Testing Best Practices
+
+### General Guidelines
+
+1. **Write tests first** – Consider TDD (Test-Driven Development)
+2. **Test behavior, not implementation** – Focus on what the code does, not how
+3. **Keep tests fast** – Unit tests should run in milliseconds
+4. **Make tests independent** – Tests should not depend on each other
+5. **Use descriptive names** – Test names should explain what's being tested
+6. **Mock external dependencies** – Don't make real API calls in unit tests
+7. **Test edge cases** – Empty strings, null values, boundary conditions
+8. **Clean up after tests** – Remove test data, close connections
+
+### Go Testing Best Practices
+
+```go
+// ✅ Good: Descriptive name, table-driven, clear assertions
+func TestValidateWorkspaceName(t *testing.T) {
+    tests := []struct {
+        name     string
+        input    string
+        expected bool
+    }{
+        {"valid name", "my-workspace", true},
+        {"empty name", "", false},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            result := ValidateWorkspaceName(tt.input)
+            if result != tt.expected {
+                t.Errorf("got %v, want %v", result, tt.expected)
+            }
+        })
+    }
+}
+
+// ❌ Bad: Vague name, no test cases, unclear assertions
+func TestWorkspace(t *testing.T) {
+    result := ValidateWorkspaceName("test")
+    if !result {
+        t.Error("failed")
+    }
+}
+```
+
+### JavaScript Testing Best Practices
+
+```javascript
+// ✅ Good: Descriptive, tests user behavior, uses proper selectors
+test('should create workspace when form is submitted', async ({ page }) => {
+  await page.goto('/workspaces');
+  await page.click('[data-testid="create-workspace-btn"]');
+  await page.fill('[data-testid="workspace-name-input"]', 'New Workspace');
+  await page.click('[data-testid="save-btn"]');
+  await expect(page.locator('text=New Workspace')).toBeVisible();
+});
+
+// ❌ Bad: Generic name, hardcoded waits, brittle selectors
+test('test workspace', async ({ page }) => {
+  await page.goto('/workspaces');
+  await page.waitForTimeout(1000);
+  await page.click('.btn-primary');
+  await page.fill('#name', 'Test');
+  await page.click('button');
+});
+```
+
+## Test Coverage
+
+### Go Coverage
+
+**Generate coverage report:**
+
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+open coverage.html
+```
+
+**View coverage in terminal:**
+
+```bash
+go test -cover ./...
+```
+
+**Coverage by package:**
+
+```bash
+go test -coverprofile=coverage.out ./...
+go tool cover -func=coverage.out
+```
+
+### Coverage Goals
+
+- **Business logic:** ≥70% coverage
+- **Handlers/Controllers:** ≥60% coverage
+- **Utilities:** ≥80% coverage
+- **Models/DTOs:** May have lower coverage (mostly data structures)
+
+## Debugging Tests
+
+### Go Tests
+
+**Print debug output:**
+
+```go
+func TestSomething(t *testing.T) {
+    t.Logf("Debug: value = %v", value)
+    // Test code...
+}
+```
+
+**Run single test:**
+
+```bash
+go test -v -run TestSpecificTest
+```
+
+**Use Delve debugger:**
+
+```bash
+go install github.com/go-delve/delve/cmd/dlv@latest
+dlv test -- -test.run TestSpecificTest
+```
+
+### Playwright Tests
+
+**Run in debug mode:**
+
+```bash
+cd ui
+npx playwright test --debug
+```
+
+**Run in headed mode:**
+
+```bash
+npx playwright test --headed
+```
+
+**Take screenshots on failure:**
+
+Playwright automatically takes screenshots on failure if configured.
+
+**View test trace:**
+
+```bash
+npx playwright show-trace trace.zip
+```
+
+## Performance Testing
+
+Meshery includes tools for performance testing.
+
+### wrk2 Setup
+
+```bash
+make wrk2-setup
+```
+
+### Nighthawk Setup
+
+```bash
+make nighthawk-setup
+```
+
+### Load Testing Example
+
+```bash
+# Using wrk2
+cd server/cmd/wrk2
+./wrk -t2 -c100 -d30s --latency http://localhost:9081/api/system/version
+```
+
+## Testing Checklist
+
+Before submitting a PR, ensure:
+
+- [ ] All unit tests pass: `go test --short ./...`
+- [ ] All E2E tests pass: `make ui-integration-tests`
+- [ ] Linting passes: `make golangci` and `make ui-lint`
+- [ ] New features have tests
+- [ ] Tests are independent and repeatable
+- [ ] Coverage is maintained or improved
+- [ ] Integration tests pass (if applicable)
+- [ ] Tests run successfully in CI
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Code Style" icon="code" href="/contributing/code-style">
+    Review coding standards
+  </Card>
+  <Card title="Server Development" icon="server" href="/contributing/server">
+    Contribute to the backend
+  </Card>
+  <Card title="UI Development" icon="palette" href="/contributing/ui">
+    Contribute to the frontend
+  </Card>
+  <Card title="CLI Development" icon="terminal" href="/contributing/cli">
+    Contribute to mesheryctl
+  </Card>
+</CardGroup>

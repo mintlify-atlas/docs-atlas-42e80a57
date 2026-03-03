@@ -1,0 +1,460 @@
+---
+title: Performance Testing
+description: Load generation and performance characterization for Kubernetes workloads and service meshes with Meshery
+---
+
+Meshery provides comprehensive performance testing and benchmarking capabilities for Kubernetes infrastructure and service mesh deployments. Generate load, measure performance, and track metrics over time to understand how your infrastructure performs under various conditions.
+
+## Overview
+
+Meshery's performance management features enable you to:
+
+- **Generate Load**: Create realistic traffic patterns to test infrastructure
+- **Measure Performance**: Collect detailed latency and throughput metrics
+- **Track Over Time**: Monitor performance trends across releases
+- **Compare Results**: Benchmark different configurations against each other
+- **Create Profiles**: Reuse test configurations for consistent testing
+
+<CardGroup cols={2}>
+  <Card title="Multiple Load Generators" icon="gauge-high">
+    Support for Fortio, wrk2, and Nighthawk load generators
+  </Card>
+  <Card title="Service Mesh Testing" icon="network-wired">
+    Specialized tests for Istio, Linkerd, Consul, and other meshes
+  </Card>
+  <Card title="Performance Profiles" icon="floppy-disk">
+    Save and reuse test configurations for consistent benchmarking
+  </Card>
+  <Card title="Metrics Integration" icon="chart-line">
+    Integrate with Prometheus and Grafana for detailed metrics
+  </Card>
+</CardGroup>
+
+## Load Generators
+
+### Supported Generators
+
+Meshery supports multiple industry-standard load generators:
+
+<AccordionGroup>
+  <Accordion title="Fortio">
+    **Fortio** is a microservices load testing library and tool developed by Istio. Features:
+    - Fast, small memory footprint
+    - Precise request rate control
+    - Built-in histogram analysis
+    - gRPC and HTTP/1.1, HTTP/2 support
+    - Best for: Consistent load testing with precise QPS control
+  </Accordion>
+  
+  <Accordion title="wrk2">
+    **wrk2** is a HTTP benchmarking tool based on wrk with constant throughput. Features:
+    - Constant request rate
+    - Accurate latency recording
+    - Lua scripting for complex scenarios
+    - Multi-threaded architecture
+    - Best for: HTTP/HTTPS load testing with scripting
+  </Accordion>
+  
+  <Accordion title="Nighthawk">
+    **Nighthawk** is Envoy's load testing tool. Features:
+    - L7 protocol performance measurement
+    - HTTP/1.1, HTTP/2 support
+    - Adaptive load control
+    - Integration with Envoy
+    - Best for: Envoy and service mesh performance testing
+  </Accordion>
+</AccordionGroup>
+
+### Load Generator Configuration
+
+Configure load generators with fine-grained control:
+
+- **Request Rate (QPS)**: Queries per second to generate
+- **Duration**: How long to run the test
+- **Concurrent Connections**: Number of parallel connections
+- **Request Headers**: Custom HTTP headers
+- **Request Body**: Payload for POST/PUT requests
+- **Timeout**: Request timeout duration
+
+## Performance Profiles
+
+### Creating Performance Profiles
+
+Performance profiles save test configurations for reuse:
+
+<Steps>
+  <Step title="Navigate to Performance">
+    Go to Performance > Profiles in Meshery
+  </Step>
+  <Step title="Create New Profile">
+    Click "Create Profile" to start configuration
+  </Step>
+  <Step title="Configure Test">
+    Set load generator, endpoint, QPS, duration, and other parameters
+  </Step>
+  <Step title="Name and Save">
+    Give the profile a descriptive name and save
+  </Step>
+  <Step title="Run Tests">
+    Execute tests using the saved profile
+  </Step>
+</Steps>
+
+### Profile Configuration
+
+**Example Performance Profile:**
+
+```json
+{
+  "name": "Product API Load Test",
+  "load_generator": "fortio",
+  "endpoint": "http://productpage.bookinfo.svc.cluster.local:9080/productpage",
+  "duration": "5m",
+  "concurrent_request": 10,
+  "qps": 100,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "metadata": {
+    "service": "productpage",
+    "version": "v1",
+    "environment": "staging"
+  }
+}
+```
+
+### Profile Metadata
+
+Add metadata to profiles for organization:
+
+- **Service Name**: Which service is being tested
+- **Version**: Application version under test
+- **Environment**: dev, staging, production
+- **Test Type**: baseline, stress, soak, spike
+- **Custom Tags**: Any additional categorization
+
+## Running Performance Tests
+
+### Execute Tests from UI
+
+<Steps>
+  <Step title="Select Profile">
+    Choose an existing performance profile or create a new one
+  </Step>
+  <Step title="Choose Target">
+    Select which Kubernetes cluster to run the test against
+  </Step>
+  <Step title="Configure Mesh (Optional)">
+    If testing a service mesh, select the mesh adapter
+  </Step>
+  <Step title="Run Test">
+    Click "Run Test" to start load generation
+  </Step>
+  <Step title="Monitor Progress">
+    Watch real-time metrics as the test executes
+  </Step>
+  <Step title="View Results">
+    Analyze results including latency histograms and throughput
+  </Step>
+</Steps>
+
+### mesheryctl Performance Tests
+
+```bash
+# Run performance test with profile
+mesheryctl perf apply -f performance-profile.yaml \
+  --mesh istio \
+  --context prod-cluster
+
+# Quick test with inline config
+mesheryctl perf apply \
+  --url http://productpage:9080/productpage \
+  --qps 100 \
+  --duration 5m \
+  --load-generator fortio
+
+# List performance profiles
+mesheryctl perf list
+
+# View specific profile
+mesheryctl perf view <profile-name>
+```
+
+### Test Parameters
+
+<CardGroup cols={2}>
+  <Card title="Load Pattern">
+    Constant, ramp-up, spike, or custom load patterns
+  </Card>
+  <Card title="Protocol">
+    HTTP/1.1, HTTP/2, gRPC, TCP
+  </Card>
+  <Card title="TLS Options">
+    Test with or without TLS/mTLS
+  </Card>
+  <Card title="Request Options">
+    Headers, body, method, authentication
+  </Card>
+</CardGroup>
+
+## Performance Results
+
+### Metrics Collected
+
+Meshery collects comprehensive performance metrics:
+
+**Request Metrics:**
+- Total requests sent
+- Successful requests (2xx, 3xx)
+- Failed requests (4xx, 5xx)
+- Request rate (QPS achieved)
+
+**Latency Metrics:**
+- Min, max, mean latency
+- p50, p90, p95, p99, p99.9 percentiles
+- Latency histogram with buckets
+- Standard deviation
+
+**Throughput Metrics:**
+- Bytes sent/received
+- Throughput (bytes/sec)
+- Connection statistics
+
+**Error Metrics:**
+- Error rate percentage
+- Error types and counts
+- Timeout count
+
+### Results Visualization
+
+View performance results through multiple visualizations:
+
+<Tabs>
+  <Tab title="Histogram">
+    Latency distribution histogram showing request count per latency bucket
+  </Tab>
+  <Tab title="Time Series">
+    Latency and throughput over time during the test
+  </Tab>
+  <Tab title="Percentiles">
+    Latency percentile chart (p50, p90, p95, p99)
+  </Tab>
+  <Tab title="Summary">
+    Key statistics summary table with all metrics
+  </Tab>
+</Tabs>
+
+### Result History
+
+All test results are saved for historical analysis:
+
+- **Timeline View**: Calendar view of all test executions
+- **Trend Analysis**: Track metrics over time
+- **Filtering**: Filter by profile, date range, metadata
+- **Comparison**: Compare results from different test runs
+
+## Comparing Performance
+
+### Result Comparison
+
+Compare performance between different test runs:
+
+<Steps>
+  <Step title="Navigate to Results">
+    Go to Performance > Results
+  </Step>
+  <Step title="Select Tests">
+    Select two or more test results to compare
+  </Step>
+  <Step title="View Comparison">
+    Click "Compare" to see side-by-side comparison
+  </Step>
+  <Step title="Analyze Differences">
+    Review latency, throughput, and error rate differences
+  </Step>
+</Steps>
+
+### Use Cases for Comparison
+
+<CardGroup cols={2}>
+  <Card title="Before/After Updates">
+    Compare performance before and after application updates
+  </Card>
+  <Card title="Service Mesh Impact">
+    Measure service mesh overhead by comparing with/without mesh
+  </Card>
+  <Card title="Configuration Tuning">
+    Test different configurations to find optimal settings
+  </Card>
+  <Card title="Infrastructure Changes">
+    Validate performance after infrastructure modifications
+  </Card>
+</CardGroup>
+
+## Metrics Integration
+
+### Prometheus Integration
+
+Integrate with Prometheus for detailed cluster metrics:
+
+<Steps>
+  <Step title="Connect Prometheus">
+    Configure Prometheus connection in Settings > Metrics
+  </Step>
+  <Step title="Select Metrics">
+    Choose which Prometheus metrics to collect during tests
+  </Step>
+  <Step title="Run Test">
+    Execute performance test with Prometheus enabled
+  </Step>
+  <Step title="Correlate Data">
+    View application metrics alongside infrastructure metrics
+  </Step>
+</Steps>
+
+**Common Prometheus Metrics:**
+- CPU usage (node and pod)
+- Memory usage and pressure
+- Network throughput
+- Disk I/O
+- Custom application metrics
+
+### Grafana Integration
+
+Visualize performance data in Grafana:
+
+- **Import Dashboards**: Import existing Grafana dashboards
+- **Create Panels**: Build custom panels for performance metrics
+- **Share Views**: Share Grafana links with team members
+- **Alerts**: Set up alerts based on performance thresholds
+
+## Service Mesh Performance
+
+### Mesh-specific Testing
+
+Test service mesh performance characteristics:
+
+**Istio Performance:**
+- Sidecar proxy overhead
+- mTLS impact on latency
+- Circuit breaker behavior under load
+- Traffic routing performance
+
+**Linkerd Performance:**
+- Proxy resource consumption
+- Request success rate
+- Golden metrics (latency, traffic, errors, saturation)
+
+**Consul Performance:**
+- Service discovery latency
+- Connect proxy overhead
+- Intention evaluation performance
+
+### Service Mesh Performance (SMP)
+
+Meshery uses the Service Mesh Performance (SMP) specification:
+
+- **Standard Format**: Common format for service mesh performance data
+- **Vendor Neutral**: Compare performance across different meshes
+- **Comprehensive**: Captures workload, infrastructure, and mesh config
+- **Portable**: Export and share performance data
+
+<Note>
+Learn more about the Service Mesh Performance specification at [https://smp-spec.io](https://smp-spec.io)
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Start with Baseline Tests">
+    Run baseline tests on fresh deployments to establish normal performance metrics before making changes.
+  </Accordion>
+  <Accordion title="Use Realistic Load Patterns">
+    Model load patterns after actual production traffic for meaningful results.
+  </Accordion>
+  <Accordion title="Test Incrementally">
+    Increase load gradually to identify performance boundaries and breaking points.
+  </Accordion>
+  <Accordion title="Monitor Infrastructure">
+    Always collect infrastructure metrics (CPU, memory, network) alongside application metrics.
+  </Accordion>
+  <Accordion title="Test Before Production">
+    Run performance tests in staging environments that mirror production.
+  </Accordion>
+  <Accordion title="Save Test Profiles">
+    Create and save profiles for all critical services to ensure consistent testing.
+  </Accordion>
+  <Accordion title="Compare Over Time">
+    Track performance metrics across releases to detect regressions early.
+  </Accordion>
+  <Accordion title="Document Test Conditions">
+    Use metadata to document what version, configuration, and environment was tested.
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Testing Scenarios
+
+### Stress Testing
+
+Find breaking points by gradually increasing load:
+
+```yaml
+apiVersion: v1
+kind: PerformanceProfile
+metadata:
+  name: stress-test-product-api
+spec:
+  loadGenerator: fortio
+  endpoint: http://productpage:9080/productpage
+  loadPattern:
+    type: ramp
+    startQPS: 10
+    endQPS: 1000
+    step: 50
+    stepDuration: 30s
+  duration: 30m
+```
+
+### Soak Testing
+
+Test stability over extended periods:
+
+```yaml
+apiVersion: v1
+kind: PerformanceProfile
+metadata:
+  name: soak-test-product-api
+spec:
+  loadGenerator: fortio
+  endpoint: http://productpage:9080/productpage
+  qps: 100
+  duration: 24h
+  concurrentConnections: 20
+```
+
+### Spike Testing
+
+Test behavior during sudden traffic spikes:
+
+```yaml
+apiVersion: v1
+kind: PerformanceProfile
+metadata:
+  name: spike-test-product-api
+spec:
+  loadGenerator: wrk2
+  endpoint: http://productpage:9080/productpage
+  loadPattern:
+    type: spike
+    baseQPS: 100
+    spikeQPS: 1000
+    spikeDuration: 2m
+    spikeInterval: 10m
+  duration: 1h
+```
+
+## Related Features
+
+- [Multi-cluster Management](/features/multi-cluster-management) - Test across multiple clusters
+- [Visual Designer](/features/visual-designer) - Design test infrastructure
+- [Service Mesh Integration](/concepts/architecture/adapters) - Mesh-specific performance testing

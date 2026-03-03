@@ -1,0 +1,500 @@
+---
+title: Design Patterns
+description: Create and use reusable infrastructure design patterns in Meshery
+---
+
+Meshery Design Patterns are reusable, configurable templates for Kubernetes infrastructure and applications. This guide shows you how to create, customize, and deploy design patterns for consistent infrastructure management.
+
+## Understanding Design Patterns
+
+Design patterns in Meshery (also called "Designs") are declarative specifications of your infrastructure that include:
+
+- **Components** - Kubernetes resources and cloud native services
+- **Configuration** - Properties and settings for each component
+- **Relationships** - How components interact (hierarchical, network, binding)
+- **Metadata** - Annotations, labels, and documentation
+
+Designs can be:
+- Deployed to clusters
+- Shared via the catalog
+- Version controlled
+- Validated against policies
+
+## Design Types
+
+Meshery supports multiple design types:
+
+<CardGroup cols={2}>
+  <Card title="Design" icon="diagram-project">
+    Native Meshery designs with visual components and relationships
+    
+    **Extensions**: `.yaml`, `.yml`
+  </Card>
+  
+  <Card title="Kubernetes Manifest" icon="kubernetes">
+    Standard K8s YAML manifests
+    
+    **Extensions**: `.yaml`, `.yml`
+  </Card>
+  
+  <Card title="Helm Chart" icon="chart-simple">
+    Packaged Helm charts
+    
+    **Extensions**: `.tgz`
+  </Card>
+  
+  <Card title="Docker Compose" icon="docker">
+    Docker Compose files converted to K8s
+    
+    **Extensions**: `.yaml`, `.yml`
+  </Card>
+</CardGroup>
+
+## Creating Design Patterns
+
+### Using the Visual Canvas
+
+<Steps>
+  <Step title="Open Design Canvas">
+    1. Navigate to **Designs** in Meshery UI
+    2. Click **Create Design**
+    3. Enter design name and description
+    4. Open in canvas editor
+  </Step>
+  
+  <Step title="Add Components">
+    From the component library (left sidebar):
+    
+    1. Search for components from 300+ integrations
+    2. Drag components onto canvas
+    3. Position and organize visually
+    
+    Common components:
+    - **Kubernetes**: Deployment, Service, ConfigMap, Secret
+    - **Service Meshes**: VirtualService, DestinationRule, Gateway
+    - **Storage**: PersistentVolume, StorageClass
+    - **Networking**: Ingress, NetworkPolicy
+  </Step>
+  
+  <Step title="Configure Properties">
+    Select a component to edit its properties:
+    
+    ```yaml
+    # Example Deployment configuration
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: web-app
+      namespace: production
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: web
+      template:
+        metadata:
+          labels:
+            app: web
+        spec:
+          containers:
+          - name: nginx
+            image: nginx:1.21
+            ports:
+            - containerPort: 80
+    ```
+  </Step>
+  
+  <Step title="Define Relationships">
+    Meshery automatically infers relationships, but you can customize:
+    
+    **Hierarchical**: Namespace contains Deployments, Pods
+    ```yaml
+    # Namespace hierarchy relationship
+    relationship:
+      type: hierarchical
+      subtype: parent
+      kind: Namespace
+    ```
+    
+    **Network**: Service exposes Deployment
+    ```yaml
+    # Network relationship
+    relationship:
+      type: network
+      selectors:
+        matchLabels:
+          app: web
+    ```
+    
+    **Binding**: Role binds to ServiceAccount
+    ```yaml
+    # Permission binding
+    relationship:
+      type: binding
+      kind: permissions
+    ```
+  </Step>
+  
+  <Step title="Save Design">
+    Click **Save** to persist your design:
+    - Stored in Meshery database
+    - Available for deployment
+    - Exportable as YAML
+  </Step>
+</Steps>
+
+### Importing Existing Configurations
+
+Convert existing infrastructure to designs:
+
+<Tabs>
+  <Tab title="Kubernetes Manifest">
+    ```bash
+    mesheryctl design import -f kubernetes-app.yaml
+    ```
+    
+    Meshery parses the manifest and creates a visual design with inferred relationships.
+  </Tab>
+  
+  <Tab title="Helm Chart">
+    ```bash
+    mesheryctl design import --design-type "Helm Chart" -f my-chart.tgz
+    ```
+    
+    Helm charts are unpacked and rendered as design components.
+  </Tab>
+  
+  <Tab title="Docker Compose">
+    ```bash
+    mesheryctl design import --design-type "Docker Compose" -f docker-compose.yml
+    ```
+    
+    Docker services are converted to Kubernetes Deployments and Services.
+  </Tab>
+  
+  <Tab title="URL Import">
+    ```bash
+    mesheryctl design import -f https://raw.githubusercontent.com/example/config.yaml
+    ```
+  </Tab>
+</Tabs>
+
+## Working with Design Files
+
+### Design File Structure
+
+A Meshery design file follows this structure:
+
+```yaml
+name: sample-application
+version: 0.0.1
+services:
+  web-deployment:
+    type: Deployment
+    apiVersion: apps/v1
+    namespace: default
+    model: kubernetes
+    settings:
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: web
+        template:
+          metadata:
+            labels:
+              app: web
+          spec:
+            containers:
+            - name: nginx
+              image: nginx:latest
+    traits:
+      meshmap:
+        id: component-uuid
+        position:
+          x: 100
+          y: 200
+  
+  web-service:
+    type: Service  
+    apiVersion: v1
+    namespace: default
+    model: kubernetes
+    settings:
+      spec:
+        selector:
+          app: web
+        ports:
+        - port: 80
+          targetPort: 80
+    dependsOn:
+    - web-deployment
+```
+
+### Exporting Designs
+
+<Steps>
+  <Step title="Export from UI">
+    1. Open design in Meshery UI
+    2. Click **Actions** → **Export**
+    3. Choose format (YAML, JSON)
+    4. Download file
+  </Step>
+  
+  <Step title="Export via CLI">
+    ```bash
+    # List available designs
+    mesheryctl design list
+    
+    # Export specific design
+    mesheryctl design view <design-name> > my-design.yaml
+    ```
+  </Step>
+</Steps>
+
+## Deploying Design Patterns
+
+<Steps>
+  <Step title="Prepare Target Environment">
+    Ensure you have:
+    - Active Kubernetes connection
+    - Proper RBAC permissions
+    - Required namespaces created
+  </Step>
+  
+  <Step title="Deploy via CLI">
+    ```bash
+    # Deploy design file
+    mesheryctl design apply -f my-design.yaml
+    
+    # Deploy saved design by name
+    mesheryctl design apply web-application
+    ```
+    
+    <Note>
+      Add `--skip-save` flag to deploy without saving the design to Meshery.
+    </Note>
+  </Step>
+  
+  <Step title="Deploy via UI">
+    1. Navigate to **Designs**
+    2. Select design
+    3. Click **Deploy**
+    4. Choose environment and workspace
+    5. Confirm deployment
+  </Step>
+  
+  <Step title="Monitor Deployment">
+    Track deployment status:
+    - Real-time updates in canvas
+    - Notification Center for events
+    - Component health indicators
+    
+    ```bash
+    # Check deployment status
+    kubectl get deployments -n <namespace>
+    ```
+  </Step>
+</Steps>
+
+## Pattern Catalog
+
+The Meshery Catalog contains curated design patterns for common scenarios:
+
+### Browsing the Catalog
+
+<Steps>
+  <Step title="Access Catalog">
+    Visit [https://meshery.io/catalog](https://meshery.io/catalog) or access through Meshery UI.
+  </Step>
+  
+  <Step title="Search Patterns">
+    Filter by:
+    - Technology (Istio, Linkerd, NGINX, etc.)
+    - Use case (monitoring, security, networking)
+    - Complexity (beginner, intermediate, advanced)
+  </Step>
+  
+  <Step title="Clone Pattern">
+    Click **Clone** to import pattern into your Meshery instance:
+    - Creates copy in your designs
+    - Fully customizable
+    - Ready to deploy
+  </Step>
+</Steps>
+
+### Publishing to Catalog
+
+Share your designs with the community:
+
+<Steps>
+  <Step title="Prepare Design">
+    Ensure your design:
+    - Has clear name and description
+    - Includes documentation
+    - Follows best practices
+    - Is validated and tested
+  </Step>
+  
+  <Step title="Add Metadata">
+    Include catalog metadata:
+    
+    ```yaml
+    # In design file
+    metadata:
+      annotations:
+        pattern.meshery.io/catalog: "true"
+        pattern.meshery.io/description: "Production-ready web application"
+        pattern.meshery.io/category: "Applications"
+        pattern.meshery.io/tags: "web,nginx,kubernetes"
+    ```
+  </Step>
+  
+  <Step title="Submit for Review">
+    1. Export design as YAML
+    2. Open pull request to [meshery/meshery](https://github.com/meshery/meshery)
+    3. Add to `docs/catalog/` directory
+    4. Include `artifacthub-pkg.yml` metadata
+  </Step>
+</Steps>
+
+## Design Validation
+
+Meshery validates designs against policies and best practices:
+
+### Schema Validation
+
+Designs are validated against component schemas:
+
+```bash
+# Validate before deployment
+mesheryctl design validate -f my-design.yaml
+```
+
+Common validation errors:
+- Missing required fields
+- Invalid property types
+- Unknown component types
+- Relationship conflicts
+
+### Policy Validation
+
+OPA policies can enforce design constraints. See [Policy Engine](/guides/policy-engine) for details.
+
+## Parameterizing Designs
+
+Create reusable designs with parameters:
+
+```yaml
+name: parameterized-app
+services:
+  app-deployment:
+    type: Deployment
+    settings:
+      spec:
+        replicas: {{ .Values.replicas }}  # Parameter
+        template:
+          spec:
+            containers:
+            - name: app
+              image: {{ .Values.image }}  # Parameter
+              env:
+              - name: ENVIRONMENT
+                value: {{ .Values.environment }}  # Parameter
+```
+
+Provide values during deployment:
+
+```bash
+mesheryctl design apply -f app.yaml \
+  --set replicas=5 \
+  --set image=myapp:v2.0 \
+  --set environment=production
+```
+
+## Design Versioning
+
+<Steps>
+  <Step title="Version Control Integration">
+    Store designs in Git:
+    
+    ```bash
+    git add designs/
+    git commit -m "Update web application design"
+    git tag -a v1.2.0 -m "Release v1.2.0"
+    git push --tags
+    ```
+  </Step>
+  
+  <Step title="Design Metadata">
+    Include version in design file:
+    
+    ```yaml
+    name: my-application
+    version: 1.2.0
+    ```
+  </Step>
+  
+  <Step title="Track Changes">
+    Meshery maintains design history:
+    - View previous versions in UI
+    - Compare changes
+    - Rollback if needed
+  </Step>
+</Steps>
+
+## Best Practices
+
+### Organization
+
+- **Namespace Grouping**: Group related components in namespaces
+- **Naming Conventions**: Use consistent, descriptive names
+- **Labels**: Add meaningful labels for filtering and selection
+- **Documentation**: Include descriptions and annotations
+
+### Reusability
+
+- **Modular Designs**: Create small, composable patterns
+- **Parameters**: Use variables for environment-specific values
+- **Relationships**: Leverage automatic relationship inference
+
+### Security
+
+- **Secrets Management**: Never hardcode secrets
+- **RBAC**: Define minimal required permissions
+- **Network Policies**: Include network segmentation
+- **Policy Validation**: Validate against security policies
+
+## Troubleshooting
+
+### Import Failures
+
+```bash
+# Check file format
+cat design.yaml | head
+
+# Validate YAML syntax
+yamllint design.yaml
+```
+
+### Deployment Errors
+
+1. Check component validation messages
+2. Verify target cluster connectivity
+3. Ensure namespace exists
+4. Review RBAC permissions
+5. Check resource quotas
+
+### Relationship Issues
+
+If automatic relationships aren't detected:
+1. Ensure labels match selectors
+2. Verify namespace consistency
+3. Manually define relationship in design file
+
+## Next Steps
+
+- Deploy patterns across [Multiple Clusters](/guides/multi-cluster-setup)
+- Enforce governance with [OPA Policies](/guides/policy-engine)
+- Share patterns with your team using [Workspaces](/guides/collaboration)
+- Explore the [Pattern Catalog](https://meshery.io/catalog)

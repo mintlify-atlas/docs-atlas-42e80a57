@@ -1,0 +1,243 @@
+---
+title: Visual Designer
+description: Design and manage cloud native infrastructure visually with Meshery's powerful visual designer interface
+---
+
+Meshery's visual designer provides an intuitive, drag-and-drop interface for designing, configuring, and managing cloud native infrastructure. Moving beyond YAML files, the visual designer enables you to create complex Kubernetes-based deployments through a collaborative canvas that intelligently understands relationships between components.
+
+## Overview
+
+The visual designer transforms infrastructure-as-code into infrastructure-as-diagrams, allowing you to:
+
+- Design infrastructure visually without writing YAML
+- Leverage intelligent component relationships
+- Collaborate in real-time with team members
+- Validate configurations before deployment
+- Version control your infrastructure designs
+
+<CardGroup cols={2}>
+  <Card title="Component Library" icon="cube">
+    Access 300+ integrations and thousands of pre-configured components from the Meshery component library
+  </Card>
+  <Card title="Relationship Mapping" icon="diagram-project">
+    Meshery automatically infers and displays relationships between infrastructure components
+  </Card>
+  <Card title="Real-time Validation" icon="check-circle">
+    Validate designs against best practices and policies as you build
+  </Card>
+  <Card title="GitOps Ready" icon="code-branch">
+    Export designs to YAML or integrate directly with your GitOps workflows
+  </Card>
+</CardGroup>
+
+## Key Capabilities
+
+### Drag-and-Drop Interface
+
+Build infrastructure designs by dragging components from the component library onto the canvas. The visual designer provides:
+
+- **Component Palette**: Browse and search 300+ integrations including Kubernetes, Istio, Prometheus, and more
+- **Properties Panel**: Configure component settings with auto-generated forms based on component schemas
+- **Canvas Controls**: Zoom, pan, and navigate large infrastructure designs
+- **Multi-select**: Select and manipulate multiple components simultaneously
+
+### Intelligent Relationships
+
+Meshery understands how infrastructure components relate to each other and automatically applies these relationships:
+
+<Steps>
+  <Step title="Edge Relationships">
+    Visual connections showing dependencies between components (e.g., Service → Deployment)
+  </Step>
+  <Step title="Mount Relationships">
+    Components that mount or attach to others (e.g., PersistentVolume → Pod)
+  </Step>
+  <Step title="Hierarchical Relationships">
+    Parent-child relationships for component organization (e.g., Namespace contains Pods)
+  </Step>
+  <Step title="Network Relationships">
+    Traffic flow and network policies between components
+  </Step>
+</Steps>
+
+### Design Validation
+
+Validate your infrastructure designs before deployment:
+
+- **Schema Validation**: Ensure all component configurations match their JSON schemas
+- **Policy Validation**: Check designs against Open Policy Agent (OPA) policies
+- **Relationship Validation**: Verify all component relationships are valid
+- **Best Practice Checks**: Identify anti-patterns and configuration issues
+
+<Note>
+Validation runs automatically as you design, providing immediate feedback on configuration issues.
+</Note>
+
+## Working with Designs
+
+### Creating a New Design
+
+<Steps>
+  <Step title="Open Designer">
+    Navigate to the Designs page and click "Create Design" or use the visual designer directly
+  </Step>
+  <Step title="Add Components">
+    Drag components from the component palette onto the canvas
+  </Step>
+  <Step title="Configure Components">
+    Click on components to open the properties panel and configure settings
+  </Step>
+  <Step title="Connect Components">
+    Meshery automatically creates relationships, or manually connect components by dragging edges
+  </Step>
+  <Step title="Save Design">
+    Save your design with a descriptive name for later use or sharing
+  </Step>
+</Steps>
+
+### Importing Existing Infrastructure
+
+Import existing infrastructure configurations into the visual designer:
+
+- **Kubernetes YAML**: Import existing K8s manifests
+- **Helm Charts**: Convert Helm charts to visual designs
+- **Docker Compose**: Import Docker Compose files
+- **From Cluster**: Discover and import running infrastructure from connected clusters
+
+```bash
+# Import from file using mesheryctl
+mesheryctl pattern import -f my-app.yaml
+```
+
+### Component Configuration
+
+Each component in the designer exposes its configuration through auto-generated forms:
+
+1. **Click a component** to open the properties panel
+2. **Configure settings** using form fields generated from the component's JSON schema
+3. **Set labels and annotations** for Kubernetes resources
+4. **Define resource limits** for compute resources
+5. **Configure relationships** manually if needed
+
+<Tip>
+Use the search function in the component palette to quickly find specific components from the 300+ available integrations.
+</Tip>
+
+## Collaboration Features
+
+The visual designer supports real-time collaboration:
+
+### Multi-user Editing
+
+- **Presence Indicators**: See who else is viewing or editing the design
+- **Cursors**: View other users' cursors and selections in real-time
+- **Comments**: Add comments to specific components for team discussion
+- **Change Tracking**: View a history of changes made to the design
+
+### Workspace Integration
+
+Designs are organized within Workspaces for team collaboration:
+
+- Assign designs to specific workspaces
+- Control access through workspace permissions
+- Share designs with team members
+- Organize related designs together
+
+## Design Lifecycle
+
+### Dry Run
+
+Before deploying, perform a dry run to preview changes:
+
+<Steps>
+  <Step title="Initiate Dry Run">
+    Click the "Dry Run" button to validate the design against target clusters
+  </Step>
+  <Step title="Select Target">
+    Choose which Kubernetes contexts to validate against
+  </Step>
+  <Step title="Review Results">
+    Examine validation results, including any errors or warnings
+  </Step>
+  <Step title="Fix Issues">
+    Address any issues identified during dry run validation
+  </Step>
+</Steps>
+
+### Deployment
+
+Deploy validated designs to Kubernetes clusters:
+
+<CardGroup cols={2}>
+  <Card title="Direct Deployment">
+    Deploy directly from the UI to connected Kubernetes clusters
+  </Card>
+  <Card title="GitOps Integration">
+    Export to Git repositories for GitOps-based deployments
+  </Card>
+  <Card title="Multi-cluster">
+    Deploy the same design to multiple clusters simultaneously
+  </Card>
+  <Card title="Rollback">
+    Undeploy designs with a single click if issues arise
+  </Card>
+</CardGroup>
+
+## Export and Integration
+
+### Export Formats
+
+Export designs in multiple formats:
+
+- **Kubernetes YAML**: Standard K8s manifests
+- **Helm Chart**: Package as a Helm chart
+- **Docker Compose**: Convert to Docker Compose format
+- **Meshery Design**: Native Meshery design format (JSON)
+- **OCI Artifact**: Package as an OCI artifact for distribution
+
+### API Access
+
+Programmatically interact with designs:
+
+```graphql
+# GraphQL query to fetch designs
+query GetDesigns {
+  patterns(selector: {}) {
+    id
+    name
+    pattern_file
+    visibility
+    catalog_data {
+      content_class
+      type
+    }
+  }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Organize with Namespaces">
+    Use Kubernetes namespaces to logically separate components within your designs
+  </Accordion>
+  <Accordion title="Use Descriptive Names">
+    Name components and designs clearly to improve team collaboration
+  </Accordion>
+  <Accordion title="Leverage Patterns">
+    Start from catalog patterns for common infrastructure configurations
+  </Accordion>
+  <Accordion title="Validate Early">
+    Run validation and dry runs frequently to catch issues early
+  </Accordion>
+  <Accordion title="Version Control">
+    Save design versions and use git integration for change tracking
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+- [Kanvas](/features/kanvas) - Extended visual and collaborative designer
+- [Design Catalog](/features/catalog) - Reusable design patterns and templates
+- [GitOps](/features/gitops) - GitOps workflows and snapshots
+- [Multi-cluster Management](/features/multi-cluster-management) - Deploy across multiple clusters

@@ -1,0 +1,538 @@
+---
+title: Provider Plugins
+description: Extend Meshery with custom authentication, storage, and multi-tenancy
+---
+
+Provider plugins extend Meshery's authentication, storage, and collaboration capabilities. They enable integration with external identity providers, cloud backends, and custom persistence layers while maintaining a consistent user experience.
+
+## Provider Types
+
+Meshery supports two types of providers:
+
+### Local Provider
+
+The Local Provider stores data in the local filesystem and uses simple authentication. It's suitable for single-user deployments and development environments.
+
+**Characteristics:**
+- File-based storage (`~/.meshery/`)
+- No remote authentication
+- Limited collaboration features
+- Offline operation support
+
+### Remote Provider
+
+Remote Providers integrate with cloud backends for authentication, data persistence, and team collaboration.
+
+**Characteristics:**
+- OAuth/OIDC/SAML authentication
+- Cloud-based storage
+- Multi-user workspaces
+- Design pattern catalogs
+- Performance result persistence
+- Organization and team management
+
+## Provider Interface
+
+All providers implement the `Provider` interface defined in `server/models/providers.go`:
+
+```go
+type Provider interface {
+    PreferencePersister
+    CapabilitiesPersister
+    
+    // Initialization
+    Initialize()
+    Name() string
+    GetProviderType() ProviderType
+    GetProviderURL() string
+    PackageLocation() string
+    
+    // Capabilities
+    GetProviderCapabilities(w http.ResponseWriter, req *http.Request, userID string)
+    SetProviderProperties(providerProperties ProviderProperties)
+    GetProviderProperties() ProviderProperties
+    
+    // Authentication
+    InitiateLogin(w http.ResponseWriter, req *http.Request, fromMiddleware bool)
+    TokenHandler(w http.ResponseWriter, req *http.Request, fromMiddleware bool)
+    ExtractToken(w http.ResponseWriter, req *http.Request)
+    GetSession(req *http.Request) error
+    GetUserDetails(req *http.Request) (*User, error)
+    GetProviderToken(req *http.Request) (string, error)
+    UpdateToken(w http.ResponseWriter, req *http.Request) string
+    Logout(w http.ResponseWriter, req *http.Request) error
+    
+    // Data Persistence
+    SaveK8sContext(token string, k8sContext K8sContext, metadata map[string]any) (connections.Connection, error)
+    GetK8sContexts(token, page, pageSize, search, order string, withStatus string, withCredentials bool) ([]byte, error)
+    DeleteK8sContext(token, id string) (K8sContext, error)
+    
+    SaveMesheryPattern(tokenString string, pattern *MesheryPattern) ([]byte, error)
+    GetMesheryPatterns(tokenString, page, pageSize, search, order string, updatedAfter string, visibility []string) ([]byte, error)
+    DeleteMesheryPattern(req *http.Request, patternID string) ([]byte, error)
+    
+    SaveConnection(conn *connections.ConnectionPayload, token string, skipTokenCheck bool) (*connections.Connection, error)
+    GetConnections(req *http.Request, userID string, page, pageSize int, search, order, filter string) (*connections.ConnectionPage, error)
+    
+    // Events
+    PersistEvent(event events.Event, token *string) error
+    GetEvents(token string, eventsFilter *events.EventsFilter, page int, userID uuid.UUID, sysID uuid.UUID) (*EventsResponse, error)
+    
+    // Workspaces & Environments
+    GetWorkspaces(token, page, pagesize, search, order, filter, orgID string) ([]byte, error)
+    SaveWorkspace(req *http.Request, workspace *workspace.WorkspacePayload, token string, skipTokenCheck bool) ([]byte, error)
+    GetEnvironments(token, page, pageSize, search, order, filter, orgID string) ([]byte, error)
+    SaveEnvironment(req *http.Request, env *environment.EnvironmentPayload, token string, skipTokenCheck bool) ([]byte, error)
+}
+```
+
+## Provider Properties
+
+Providers declare their capabilities through a `ProviderProperties` struct:
+
+```go
+type ProviderProperties struct {
+    ProviderType        ProviderType      // "local" or "remote"
+    PackageVersion      string            // Extension package version
+    PackageURL          string            // URL to extension bundle
+    ProviderName        string            // Display name
+    ProviderDescription []string          // Description lines
+    ProviderURL         string            // Base URL
+    Extensions          Extensions        // UI extensions
+    Capabilities        Capabilities      // Feature capabilities
+    RestrictedAccess    RestrictedAccess  // UI restrictions
+    Redirects           map[string]string // URL redirects
+}
+```
+
+## Capabilities System
+
+Capabilities indicate which features the provider supports:
+
+```go
+type Capability struct {
+    Feature  Feature // Feature identifier
+    Endpoint string  // API endpoint path
+}
+
+// Common capabilities
+const (
+    SyncPrefs                   Feature = "sync-prefs"
+    PersistResults              Feature = "persist-results"
+    PersistPerformanceProfiles  Feature = "persist-performance-profiles"
+    PersistMesheryPatterns      Feature = "persist-meshery-patterns"
+    PersistMesheryFilters       Feature = "persist-meshery-filters"
+    PersistMesheryApplications  Feature = "persist-meshery-applications"
+    PersistConnection           Feature = "persist-connection"
+    PersistCredentials          Feature = "persist-credentials"
+    PersistEvents               Feature = "persist-events"
+    UsersProfile                Feature = "users-profile"
+    UsersIdentity               Feature = "users-identity"
+    PersistOrganizations        Feature = "organizations"
+    PersistEnvironments         Feature = "environments"
+    PersistWorkspaces           Feature = "workspaces"
+    MesheryPatternsCatalog      Feature = "meshery-patterns-catalog"
+    ShareDesigns                Feature = "share-designs"
+)
+```
+
+### Checking Capabilities
+
+```go
+if provider.Capabilities.IsSupported(PersistMesheryPatterns) {
+    endpoint, exists := provider.Capabilities.GetEndpointForFeature(PersistMesheryPatterns)
+    if exists {
+        // Use endpoint to persist pattern
+    }
+}
+```
+
+## Creating a Remote Provider
+
+### 1. Provider Server
+
+Create a backend service that implements the capabilities endpoint and feature endpoints:
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "net/http"
+)
+
+type ProviderCapabilities struct {
+    ProviderType        string                `json:"provider_type"`
+    PackageVersion      string                `json:"package_version"`
+    PackageURL          string                `json:"package_url"`
+    ProviderName        string                `json:"provider_name"`
+    ProviderDescription []string              `json:"provider_description"`
+    ProviderURL         string                `json:"provider_url"`
+    Capabilities        []Capability          `json:"capabilities"`
+}
+
+type Capability struct {
+    Feature  string `json:"feature"`
+    Endpoint string `json:"endpoint"`
+}
+
+func capabilitiesHandler(w http.ResponseWriter, r *http.Request) {
+    caps := ProviderCapabilities{
+        ProviderType:   "remote",
+        PackageVersion: "v0.1.0",
+        PackageURL:     "https://provider.example.com/download/v0.1.0.tar.gz",
+        ProviderName:   "Example Provider",
+        ProviderDescription: []string{
+            "Custom Meshery provider",
+            "with cloud storage",
+        },
+        ProviderURL: "https://provider.example.com",
+        Capabilities: []Capability{
+            {Feature: "sync-prefs", Endpoint: "/api/user/preferences"},
+            {Feature: "persist-meshery-patterns", Endpoint: "/api/patterns"},
+            {Feature: "persist-connection", Endpoint: "/api/connections"},
+            {Feature: "users-profile", Endpoint: "/api/user/profile"},
+            {Feature: "persist-events", Endpoint: "/api/events"},
+            {Feature: "workspaces", Endpoint: "/api/workspaces"},
+            {Feature: "environments", Endpoint: "/api/environments"},
+        },
+    }
+    
+    json.NewEncoder(w).Encode(caps)
+}
+
+func main() {
+    http.HandleFunc("/v0.7.0/capabilities", capabilitiesHandler)
+    http.HandleFunc("/api/user/profile", profileHandler)
+    http.HandleFunc("/api/patterns", patternsHandler)
+    http.ListenAndServe(":8080", nil)
+}
+```
+
+### 2. Authentication Flow
+
+Implement OAuth 2.0 / OIDC authentication:
+
+```go
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+    // Extract parameters from query
+    source := r.URL.Query().Get("source")           // Meshery callback URL
+    providerVersion := r.URL.Query().Get("provider_version")
+    mesheryVersion := r.URL.Query().Get("meshery_version")
+    ref := r.URL.Query().Get("ref")                 // Return URL after login
+    
+    // Store state for OAuth callback
+    state := generateState()
+    saveState(state, source, ref)
+    
+    // Redirect to OAuth provider
+    authURL := fmt.Sprintf(
+        "https://oauth.example.com/authorize?client_id=%s&redirect_uri=%s&state=%s&scope=openid profile email",
+        clientID, callbackURL, state,
+    )
+    http.Redirect(w, r, authURL, http.StatusFound)
+}
+
+func callbackHandler(w http.ResponseWriter, r *http.Request) {
+    // Exchange code for token
+    code := r.URL.Query().Get("code")
+    state := r.URL.Query().Get("state")
+    
+    savedState := getState(state)
+    if savedState == nil {
+        http.Error(w, "Invalid state", http.StatusBadRequest)
+        return
+    }
+    
+    // Get access token
+    token, err := exchangeCodeForToken(code)
+    if err != nil {
+        http.Error(w, "Token exchange failed", http.StatusInternalServerError)
+        return
+    }
+    
+    // Redirect back to Meshery with token
+    redirectURL := fmt.Sprintf(
+        "%s/api/user/token?token=%s&provider=example",
+        savedState.Source, token,
+    )
+    http.Redirect(w, r, redirectURL, http.StatusFound)
+}
+```
+
+### 3. Data Persistence Endpoints
+
+#### Persist Patterns
+
+```go
+func patternsHandler(w http.ResponseWriter, r *http.Request) {
+    token := r.Header.Get("Authorization")
+    userID, err := validateToken(token)
+    if err != nil {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+    
+    switch r.Method {
+    case http.MethodPost:
+        var pattern MesheryPattern
+        json.NewDecoder(r.Body).Decode(&pattern)
+        
+        pattern.UserID = userID
+        pattern.CreatedAt = time.Now()
+        
+        id, err := db.SavePattern(&pattern)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        
+        json.NewEncoder(w).Encode(map[string]string{"id": id})
+        
+    case http.MethodGet:
+        page := r.URL.Query().Get("page")
+        pageSize := r.URL.Query().Get("pagesize")
+        search := r.URL.Query().Get("search")
+        
+        patterns, err := db.GetPatterns(userID, page, pageSize, search)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        
+        json.NewEncoder(w).Encode(patterns)
+    }
+}
+```
+
+#### Persist Connections
+
+```go
+func connectionsHandler(w http.ResponseWriter, r *http.Request) {
+    token := r.Header.Get("Authorization")
+    userID, err := validateToken(token)
+    if err != nil {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+    
+    switch r.Method {
+    case http.MethodPost:
+        var conn ConnectionPayload
+        json.NewDecoder(r.Body).Decode(&conn)
+        
+        conn.UserID = userID
+        conn.CreatedAt = time.Now()
+        
+        saved, err := db.SaveConnection(&conn)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        
+        json.NewEncoder(w).Encode(saved)
+        
+    case http.MethodGet:
+        connections, err := db.GetConnections(userID, r.URL.Query())
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+        
+        json.NewEncoder(w).Encode(connections)
+    }
+}
+```
+
+### 4. Extension Package
+
+Create a tarball with UI extensions:
+
+```bash
+provider-extensions/
+├── provider.json           # Metadata
+├── components/
+│   ├── navigator.js        # Navigator menu items
+│   ├── preferences.js      # User preferences panel
+│   └── account.js          # Account settings
+└── static/
+    └── logo.svg
+
+# Create package
+tar -czf provider-v0.1.0.tar.gz provider-extensions/
+```
+
+**provider.json:**
+
+```json
+{
+  "extensions": {
+    "navigator": [
+      {
+        "title": "My Workspace",
+        "href": {
+          "uri": "/extension/workspace",
+          "external": false
+        },
+        "component": "components/workspace.js",
+        "icon": "static/workspace-icon.svg",
+        "show": true
+      }
+    ],
+    "user_prefs": [
+      {
+        "component": "components/preferences.js",
+        "type": "remote"
+      }
+    ]
+  }
+}
+```
+
+## UI Extensions
+
+Providers can extend the Meshery UI through remote React components:
+
+### Navigator Extension
+
+Add custom navigation items:
+
+```javascript
+// components/navigator.js
+import React from 'react';
+import { ListItem, ListItemIcon, ListItemText } from '@mui/material';
+import WorkspaceIcon from '@mui/icons-material/WorkspacePremium';
+
+export default function WorkspaceNavigator({ onClick }) {
+  return (
+    <ListItem button onClick={() => onClick('/extension/workspace')}>
+      <ListItemIcon>
+        <WorkspaceIcon />
+      </ListItemIcon>
+      <ListItemText primary="My Workspace" />
+    </ListItem>
+  );
+}
+```
+
+### User Preferences Extension
+
+```javascript
+// components/preferences.js
+import React, { useState } from 'react';
+import { Switch, FormControlLabel } from '@mui/material';
+
+export default function CustomPreferences({ preferences, onSave }) {
+  const [enableFeature, setEnableFeature] = useState(
+    preferences.customFeature || false
+  );
+  
+  const handleChange = (event) => {
+    setEnableFeature(event.target.checked);
+    onSave({ customFeature: event.target.checked });
+  };
+  
+  return (
+    <FormControlLabel
+      control={
+        <Switch
+          checked={enableFeature}
+          onChange={handleChange}
+        />
+      }
+      label="Enable Custom Feature"
+    />
+  );
+}
+```
+
+## Registering a Provider
+
+Providers are registered in Meshery's configuration file:
+
+**~/.meshery/config.yaml:**
+
+```yaml
+providers:
+  - provider-type: remote
+    provider-url: https://provider.example.com
+    provider-name: Example Provider
+```
+
+Users can select providers from the Meshery UI at `/provider`.
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `PROVIDER_BASE_URLS` | Comma-separated list of provider URLs |
+| `SKIP_DOWNLOAD_EXTENSIONS` | Skip extension package download |
+| `PROVIDER_CAPABILITIES_FILEPATH` | Local file path for capabilities (dev mode) |
+
+## Anonymous User Support
+
+Providers can support anonymous users for public deployments:
+
+```go
+const (
+    PersistAnonymousUser Feature = "persist-anonymous-user"
+)
+
+// In capabilities
+Capability{
+    Feature:  "persist-anonymous-user",
+    Endpoint: "/api/anonymous/user",
+}
+
+// Endpoint handler
+func anonymousUserHandler(w http.ResponseWriter, r *http.Request) {
+    // Create temporary user
+    userID := uuid.New()
+    token := generateAnonymousToken(userID)
+    
+    json.NewEncoder(w).Encode(AnonymousFlowResponse{
+        AccessToken: token,
+        UserID:      userID,
+    })
+}
+```
+
+## Best Practices
+
+1. **Security**:
+   - Use HTTPS for all provider endpoints
+   - Validate all tokens server-side
+   - Never expose user credentials in responses
+   - Implement rate limiting on API endpoints
+
+2. **Performance**:
+   - Cache provider capabilities
+   - Use pagination for large datasets
+   - Implement query filters and search
+
+3. **User Experience**:
+   - Provide clear error messages
+   - Support deep linking with `ref` parameter
+   - Implement session timeout warnings
+
+4. **Compatibility**:
+   - Support multiple Meshery versions
+   - Version your API endpoints
+   - Document breaking changes
+
+## Example Providers
+
+Reference implementations:
+
+- [Meshery Cloud Provider](https://github.com/layer5io/meshery-cloud)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="UI Extensions" icon="window" href="/extensions/ui-plugins">
+    Create custom UI components
+  </Card>
+  <Card title="Adapters" icon="puzzle-piece" href="/extensions/adapters">
+    Build gRPC adapters
+  </Card>
+</CardGroup>

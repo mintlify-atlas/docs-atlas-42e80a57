@@ -1,0 +1,379 @@
+---
+title: mesheryctl environment
+description: Manage deployment environments in Meshery
+---
+
+The `environment` command manages deployment environments, allowing you to organize and isolate infrastructure resources by environment type (development, staging, production, etc.).
+
+## Synopsis
+
+```bash
+mesheryctl environment [subcommand] [flags]
+```
+
+## Subcommands
+
+- `create` - Create a new environment
+- `delete` - Delete an environment
+- `list` - List all environments
+- `view` - View environment details
+
+## create
+
+Create a new environment in an organization.
+
+### Usage
+
+```bash
+mesheryctl environment create [flags]
+```
+
+### Flags
+
+<ParamField path="--orgID" type="string" required>
+  Organization ID to create environment in
+</ParamField>
+
+<ParamField path="--name" type="string" required>
+  Environment name
+</ParamField>
+
+<ParamField path="--description" type="string">
+  Environment description
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Create Environment
+# Create development environment
+mesheryctl environment create --orgID org-123 --name development --description "Dev environment"
+
+# Create production environment
+mesheryctl environment create --orgID org-123 --name production --description "Production infrastructure"
+```
+
+```bash Create Staging Environment
+# Create staging environment
+mesheryctl environment create \
+  --orgID org-123 \
+  --name staging \
+  --description "Pre-production testing environment"
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Creating environment...
+Environment created successfully
+
+ID: env-7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+Name: development
+Organization: org-123
+Description: Dev environment
+```
+
+## delete
+
+Delete an environment from an organization.
+
+### Usage
+
+```bash
+mesheryctl environment delete [environment-id] [flags]
+```
+
+### Examples
+
+```bash
+# Delete environment by ID
+mesheryctl environment delete env-7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+```
+
+### Sample Output
+
+```
+Deleting environment development...
+Environment deleted successfully
+```
+
+<Note>
+Deleting an environment does not delete the resources deployed in it. It only removes the environment metadata from Meshery.
+</Note>
+
+## list
+
+List all environments in an organization.
+
+### Usage
+
+```bash
+mesheryctl environment list [flags]
+```
+
+### Flags
+
+<ParamField path="--orgID" type="string" required>
+  Organization ID to list environments from
+</ParamField>
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of environments per page
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Environments
+# List all environments in organization
+mesheryctl environment list --orgID org-123
+```
+
+```bash Pagination
+# List with pagination
+mesheryctl environment list --orgID org-123 --page 1 --page-size 50
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+NAME              OWNER              ORGANIZATION    CREATED
+development       user@example.com   org-123         2024-03-01 10:30:00
+staging           user@example.com   org-123         2024-03-02 14:22:00
+production        admin@example.com  org-123         2024-03-03 09:15:00
+
+Total: 3 environments
+```
+
+## view
+
+View detailed information about an environment.
+
+### Usage
+
+```bash
+mesheryctl environment view [environment-id] [flags]
+```
+
+### Flags
+
+<ParamField path="--orgID" type="string" required>
+  Organization ID
+</ParamField>
+
+<ParamField path="--output" type="string" default="yaml">
+  Output format: `yaml`, `json`. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash View Environment
+# View environment in YAML
+mesheryctl environment view env-123 --orgID org-123
+
+# View in JSON format
+mesheryctl environment view env-123 --orgID org-123 -o json
+```
+</CodeGroup>
+
+### Sample Output
+
+```yaml
+id: env-7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+name: development
+description: Dev environment
+owner: user@example.com
+organizationID: org-123
+createdAt: 2024-03-01T10:30:00Z
+updatedAt: 2024-03-10T09:30:00Z
+connections:
+  - local-k8s
+  - dev-cluster
+designs:
+  - bookinfo-app
+  - nginx-deployment
+```
+
+## Use Cases
+
+### Multi-Environment Setup
+
+```bash
+# Create standard environments
+mesheryctl environment create --orgID org-123 --name development --description "Development"
+mesheryctl environment create --orgID org-123 --name staging --description "Staging"
+mesheryctl environment create --orgID org-123 --name production --description "Production"
+
+# List all environments
+mesheryctl environment list --orgID org-123
+```
+
+### Environment Lifecycle
+
+```bash
+# Create temporary test environment
+mesheryctl environment create --orgID org-123 --name feature-test --description "Feature testing"
+
+# Use environment for testing
+# ... deploy and test resources ...
+
+# Delete when done
+mesheryctl environment delete env-feature-test-id
+```
+
+### View Environment Details
+
+```bash
+# List environments
+mesheryctl environment list --orgID org-123
+
+# View specific environment
+mesheryctl environment view env-123 --orgID org-123
+```
+
+## Environment Properties
+
+Each environment includes:
+
+- **ID** - Unique identifier
+- **Name** - Environment name (development, staging, production, etc.)
+- **Description** - Environment purpose and details
+- **Owner** - User who created the environment
+- **Organization** - Parent organization
+- **Connections** - Associated cluster connections
+- **Designs** - Deployed designs in the environment
+- **Created/Updated** - Timestamps
+
+## Environment Types
+
+Common environment types:
+
+- **development** - For active development and feature work
+- **staging** - For pre-production testing and validation
+- **production** - For live production workloads
+- **testing** - For automated testing and CI/CD
+- **qa** - For quality assurance testing
+- **demo** - For demonstrations and training
+
+## Best Practices
+
+### Naming Conventions
+
+```bash
+# Use descriptive names
+mesheryctl environment create --orgID org-123 --name prod-us-east
+mesheryctl environment create --orgID org-123 --name dev-feature-auth
+
+# Include region or purpose in name
+mesheryctl environment create --orgID org-123 --name staging-eu-west
+```
+
+### Environment Isolation
+
+- Use separate environments for different lifecycle stages
+- Map environments to Kubernetes namespaces or clusters
+- Apply environment-specific policies and configurations
+- Control access via organization roles
+
+### Resource Management
+
+- Tag resources with environment labels
+- Track deployed designs per environment
+- Monitor environment-specific metrics
+- Maintain environment documentation
+
+## Workflow
+
+1. **Create Organization** - Set up organization structure
+2. **Create Environments** - Define environment hierarchy
+3. **Add Connections** - Associate cluster connections
+4. **Deploy Designs** - Deploy infrastructure to environments
+5. **Monitor** - Track environment health and resources
+6. **Clean Up** - Remove unused environments
+
+## Integration with Other Commands
+
+### With Connections
+
+```bash
+# Create environment
+mesheryctl environment create --orgID org-123 --name staging
+
+# Create connection for environment
+mesheryctl connection create --type eks --name staging-cluster
+
+# Associate connection with environment (via UI or API)
+```
+
+### With Designs
+
+```bash
+# Deploy design to specific environment
+mesheryctl design apply -f design.yaml
+# (Select environment during deployment)
+```
+
+### With Workspaces
+
+```bash
+# Create workspace for environment
+mesheryctl workspace create --orgID org-123 --name dev-workspace
+
+# Associate environment with workspace
+```
+
+## Troubleshooting
+
+### Environment Creation Fails
+
+```bash
+# Verify organization ID
+mesheryctl org list
+
+# Check permissions
+# Ensure you have permission to create environments in the organization
+```
+
+### Cannot List Environments
+
+```bash
+# Verify organization ID is correct
+mesheryctl environment list --orgID org-123
+
+# Check authentication
+mesheryctl system login
+```
+
+### Environment Not Found
+
+```bash
+# List all environments to find correct ID
+mesheryctl environment list --orgID org-123
+
+# Verify environment ID format
+# IDs should be UUIDs
+```
+
+### Delete Fails
+
+```bash
+# Ensure environment is not in use
+# Check for deployed designs or active connections
+
+# View environment details first
+mesheryctl environment view env-123 --orgID org-123
+```
+
+## See Also
+
+- [Connection Command](/cli/connections) - Manage cluster connections
+- [Workspace Command](/cli/workspaces) - Manage team workspaces
+- [Design Command](/cli/design) - Deploy designs to environments
+- [Organization Management](https://docs.meshery.io/concepts/logical/organizations)

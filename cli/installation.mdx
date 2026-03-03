@@ -1,0 +1,276 @@
+---
+title: Installing mesheryctl
+description: Installation guide for the mesheryctl CLI on all platforms
+---
+
+`mesheryctl` is available for macOS, Linux, and Windows. Choose your platform below for installation instructions.
+
+## macOS
+
+### Using Homebrew (Recommended)
+
+<CodeGroup>
+```bash Install
+brew install mesheryctl
+```
+
+```bash Upgrade
+brew upgrade mesheryctl
+```
+
+```bash Verify
+mesheryctl version
+```
+</CodeGroup>
+
+### Using Bash Script
+
+```bash
+curl -L https://meshery.io/install | PLATFORM=darwin bash -
+```
+
+## Linux
+
+### Using Bash Script
+
+<CodeGroup>
+```bash Install
+curl -L https://meshery.io/install | PLATFORM=linux bash -
+```
+
+```bash Install to Custom Location
+curl -L https://meshery.io/install | PLATFORM=linux MESHERY_VERSION=v0.7.0 bash -
+```
+</CodeGroup>
+
+### Manual Installation
+
+```bash
+# Download the binary
+wget https://github.com/meshery/meshery/releases/latest/download/mesheryctl_linux_amd64.tar.gz
+
+# Extract
+tar -xzf mesheryctl_linux_amd64.tar.gz
+
+# Move to PATH
+sudo mv mesheryctl /usr/local/bin/
+
+# Make executable
+sudo chmod +x /usr/local/bin/mesheryctl
+
+# Verify installation
+mesheryctl version
+```
+
+## Windows
+
+### Using PowerShell
+
+<CodeGroup>
+```powershell Install
+$WebClient = New-Object System.Net.WebClient
+$WebClient.DownloadFile("https://github.com/meshery/meshery/releases/latest/download/mesheryctl_windows_amd64.zip", "mesheryctl.zip")
+Expand-Archive mesheryctl.zip -DestinationPath .
+.\mesheryctl.exe version
+```
+
+```powershell Add to PATH
+# Move to a directory in your PATH
+Move-Item mesheryctl.exe C:\Windows\System32\
+
+# Verify
+mesheryctl version
+```
+</CodeGroup>
+
+### Using Scoop
+
+```powershell
+scoop bucket add mesheryctl https://github.com/meshery/scoop-bucket.git
+scoop install mesheryctl
+```
+
+## Docker
+
+Run `mesheryctl` in a Docker container:
+
+```bash
+docker run --rm -it -v ~/.meshery:/home/meshery layer5/mesheryctl:stable system status
+```
+
+<Note>
+Mount your Meshery config directory (`~/.meshery`) to persist configuration across container runs.
+</Note>
+
+## Building from Source
+
+### Prerequisites
+
+- Go 1.21 or later
+- Git
+
+### Build Instructions
+
+```bash
+# Clone the repository
+git clone https://github.com/meshery/meshery.git
+cd meshery/mesheryctl
+
+# Build
+make
+
+# The binary will be at ./cmd/mesheryctl/mesheryctl
+# Move to PATH
+sudo mv cmd/mesheryctl/mesheryctl /usr/local/bin/
+
+# Verify
+mesheryctl version
+```
+
+## Verify Installation
+
+After installation, verify that `mesheryctl` is working:
+
+```bash
+# Check version
+mesheryctl version
+
+# View help
+mesheryctl --help
+
+# Check system compatibility
+mesheryctl system check
+```
+
+## Enable Shell Completion
+
+For better developer experience, enable command completion:
+
+<CodeGroup>
+```bash Bash
+# Linux
+mesheryctl completion bash | sudo tee /etc/bash_completion.d/mesheryctl
+
+# macOS
+mesheryctl completion bash > /usr/local/etc/bash_completion.d/mesheryctl
+
+# Reload shell
+source ~/.bashrc
+```
+
+```zsh Zsh
+mesheryctl completion zsh > "${fpath[1]}/_mesheryctl"
+
+# Reload shell
+source ~/.zshrc
+```
+
+```fish Fish
+mesheryctl completion fish > ~/.config/fish/completions/mesheryctl.fish
+
+# Reload shell
+source ~/.config/fish/config.fish
+```
+
+```powershell PowerShell
+mesheryctl completion powershell | Out-String | Invoke-Expression
+
+# Add to profile for persistence
+mesheryctl completion powershell >> $PROFILE
+```
+</CodeGroup>
+
+## Configuration
+
+On first run, `mesheryctl` creates a configuration file at `~/.meshery/config.yaml`:
+
+```bash
+# Initialize configuration
+mesheryctl system context create local --url http://localhost:9081 --set
+```
+
+## Troubleshooting
+
+### Command Not Found
+
+If you get "command not found" after installation:
+
+```bash
+# Check if binary is in PATH
+which mesheryctl
+
+# If not, add installation directory to PATH
+export PATH=$PATH:/usr/local/bin
+
+# Make permanent by adding to shell profile
+echo 'export PATH=$PATH:/usr/local/bin' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Permission Denied
+
+If you get permission errors:
+
+```bash
+# Make binary executable
+chmod +x /usr/local/bin/mesheryctl
+
+# Or use sudo for system-wide installation
+sudo chmod +x /usr/local/bin/mesheryctl
+```
+
+### macOS Security Warning
+
+On macOS, if you see "mesheryctl cannot be opened because it is from an unidentified developer":
+
+```bash
+# Remove quarantine attribute
+xattr -d com.apple.quarantine /usr/local/bin/mesheryctl
+
+# Or allow in System Preferences > Security & Privacy
+```
+
+## Updating mesheryctl
+
+<CodeGroup>
+```bash Homebrew (macOS)
+brew upgrade mesheryctl
+```
+
+```bash Script (Linux/macOS)
+curl -L https://meshery.io/install | bash -
+```
+
+```powershell PowerShell (Windows)
+# Download latest version
+$WebClient = New-Object System.Net.WebClient
+$WebClient.DownloadFile("https://github.com/meshery/meshery/releases/latest/download/mesheryctl_windows_amd64.zip", "mesheryctl.zip")
+Expand-Archive -Force mesheryctl.zip -DestinationPath .
+```
+</CodeGroup>
+
+## Uninstalling
+
+<CodeGroup>
+```bash Homebrew
+brew uninstall mesheryctl
+```
+
+```bash Manual (Linux/macOS)
+sudo rm /usr/local/bin/mesheryctl
+rm -rf ~/.meshery
+```
+
+```powershell Windows
+Remove-Item C:\Windows\System32\mesheryctl.exe
+Remove-Item -Recurse $env:USERPROFILE\.meshery
+```
+</CodeGroup>
+
+## Next Steps
+
+After installation:
+
+1. [Start Meshery](/cli/system#start) - Deploy Meshery locally
+2. [Configure Context](/cli/system#context) - Set up your Meshery endpoint
+3. [Explore Commands](/cli/overview) - Learn available commands

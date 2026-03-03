@@ -1,0 +1,632 @@
+---
+title: Working with Integrations
+description: Leverage Meshery's 300+ cloud native integrations for your infrastructure
+---
+
+Meshery provides native support for 300+ cloud native technologies through its extensible integration framework. This guide covers discovering, using, and managing integrations in your infrastructure.
+
+## Understanding Integrations
+
+Meshery integrations are:
+
+- **Models** - Representations of infrastructure technologies (Kubernetes, Istio, AWS, etc.)
+- **Components** - Individual resources within models (Pod, VirtualService, S3Bucket)
+- **Relationships** - How components interact and depend on each other
+- **Capabilities** - What operations are supported (deploy, configure, monitor)
+
+Each integration is built on MeshModel, Meshery's cloud native model framework.
+
+## Available Integration Categories
+
+<CardGroup cols={3}>
+  <Card title="Service Meshes" icon="network-wired">
+    Istio, Linkerd, Consul, Kuma, Open Service Mesh, NGINX Service Mesh
+  </Card>
+  
+  <Card title="Kubernetes" icon="kubernetes">
+    Core Kubernetes, operators, controllers, CRDs
+  </Card>
+  
+  <Card title="Cloud Providers" icon="cloud">
+    AWS, Azure, GCP, DigitalOcean, Linode
+  </Card>
+  
+  <Card title="Observability" icon="chart-line">
+    Prometheus, Grafana, Jaeger, Kiali, OpenTelemetry
+  </Card>
+  
+  <Card title="Security" icon="shield">
+    Cert-Manager, External Secrets, Vault, Kyverno, OPA
+  </Card>
+  
+  <Card title="Networking" icon="diagram-project">
+    Ingress controllers, CNIs, load balancers, DNS
+  </Card>
+  
+  <Card title="Storage" icon="database">
+    Rook, Longhorn, OpenEBS, cloud storage operators
+  </Card>
+  
+  <Card title="CI/CD" icon="gears">
+    Argo CD, Flux, Tekton, Jenkins X
+  </Card>
+  
+  <Card title="Databases" icon="table">
+    PostgreSQL, MySQL, MongoDB, Redis operators
+  </Card>
+</CardGroup>
+
+View the complete catalog at [meshery.io/integrations](https://meshery.io/integrations)
+
+## Browsing Integrations
+
+<Steps>
+  <Step title="Access Registry">
+    In Meshery UI, navigate to **Registry** to explore available integrations:
+    
+    - Search by name or category
+    - Filter by model type
+    - View component details
+    - Check relationship definitions
+  </Step>
+  
+  <Step title="View Integration Details">
+    Select an integration to see:
+    
+    - **Overview**: Description and documentation
+    - **Components**: Available resource types
+    - **Relationships**: How components connect
+    - **Versions**: Supported API versions
+    - **Examples**: Sample designs and patterns
+  </Step>
+  
+  <Step title="Check Availability">
+    Integrations are automatically available when:
+    
+    1. CRDs exist in connected clusters (discovered by MeshSync)
+    2. Models are registered in Meshery Registry
+    3. Components are imported from catalog
+  </Step>
+</Steps>
+
+## Using Integrations in Designs
+
+### Adding Components to Designs
+
+<Steps>
+  <Step title="Open Design Canvas">
+    Create or open an existing design in Meshery UI.
+  </Step>
+  
+  <Step title="Search Component Library">
+    In the left sidebar component library:
+    
+    ```
+    1. Type to search (e.g., "VirtualService")
+    2. Filter by model (e.g., "Istio")
+    3. Browse by category
+    ```
+    
+    Components are organized by integration model.
+  </Step>
+  
+  <Step title="Add to Canvas">
+    Drag and drop components onto the canvas:
+    
+    - Position visually for clarity
+    - Configure properties in right panel
+    - Define relationships automatically or manually
+  </Step>
+  
+  <Step title="Configure Component">
+    Example: Istio VirtualService
+    
+    ```yaml
+    apiVersion: networking.istio.io/v1beta1
+    kind: VirtualService
+    metadata:
+      name: reviews-route
+      namespace: default
+    spec:
+      hosts:
+      - reviews
+      http:
+      - match:
+        - headers:
+            end-user:
+              exact: jason
+        route:
+        - destination:
+            host: reviews
+            subset: v2
+      - route:
+        - destination:
+            host: reviews
+            subset: v1
+    ```
+  </Step>
+</Steps>
+
+### Common Integration Patterns
+
+#### Istio Service Mesh
+
+<Tabs>
+  <Tab title="Traffic Management">
+    ```yaml
+    # VirtualService for canary deployment
+    services:
+      canary-route:
+        type: VirtualService
+        model: istio
+        settings:
+          spec:
+            hosts:
+            - myapp
+            http:
+            - match:
+              - headers:
+                  x-canary:
+                    exact: "true"
+              route:
+              - destination:
+                  host: myapp
+                  subset: v2
+                weight: 100
+            - route:
+              - destination:
+                  host: myapp
+                  subset: v1
+                weight: 90
+              - destination:
+                  host: myapp
+                  subset: v2
+                weight: 10
+    ```
+  </Tab>
+  
+  <Tab title="Security">
+    ```yaml
+    # PeerAuthentication for mTLS
+    services:
+      strict-mtls:
+        type: PeerAuthentication
+        model: istio
+        settings:
+          spec:
+            mtls:
+              mode: STRICT
+      
+      auth-policy:
+        type: AuthorizationPolicy
+        model: istio
+        settings:
+          spec:
+            action: ALLOW
+            rules:
+            - from:
+              - source:
+                  principals:
+                  - cluster.local/ns/default/sa/frontend
+              to:
+              - operation:
+                  methods:
+                  - GET
+    ```
+  </Tab>
+  
+  <Tab title="Observability">
+    ```yaml
+    # Telemetry configuration
+    services:
+      telemetry:
+        type: Telemetry
+        model: istio
+        settings:
+          spec:
+            metrics:
+            - providers:
+              - name: prometheus
+            tracing:
+            - providers:
+              - name: jaeger
+              randomSamplingPercentage: 100
+    ```
+  </Tab>
+</Tabs>
+
+#### Kubernetes Core
+
+```yaml
+# Complete application stack
+services:
+  app-namespace:
+    type: Namespace
+    model: kubernetes
+    settings:
+      metadata:
+        name: myapp
+  
+  app-deployment:
+    type: Deployment
+    model: kubernetes
+    namespace: myapp
+    settings:
+      spec:
+        replicas: 3
+        selector:
+          matchLabels:
+            app: myapp
+        template:
+          metadata:
+            labels:
+              app: myapp
+          spec:
+            containers:
+            - name: app
+              image: myapp:v1.0
+              ports:
+              - containerPort: 8080
+    dependsOn:
+    - app-namespace
+  
+  app-service:
+    type: Service
+    model: kubernetes
+    namespace: myapp
+    settings:
+      spec:
+        selector:
+          app: myapp
+        ports:
+        - port: 80
+          targetPort: 8080
+    dependsOn:
+    - app-deployment
+  
+  app-ingress:
+    type: Ingress
+    model: kubernetes
+    namespace: myapp
+    settings:
+      spec:
+        rules:
+        - host: myapp.example.com
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: app-service
+                  port:
+                    number: 80
+    dependsOn:
+    - app-service
+```
+
+#### Prometheus Monitoring
+
+```yaml
+# ServiceMonitor for application metrics
+services:
+  app-monitor:
+    type: ServiceMonitor
+    model: prometheus-operator
+    settings:
+      spec:
+        selector:
+          matchLabels:
+            app: myapp
+        endpoints:
+        - port: metrics
+          interval: 30s
+          path: /metrics
+```
+
+## Service Mesh Adapters
+
+Meshery uses adapters for deep integration with service meshes:
+
+### Available Adapters
+
+- **Istio** - Traffic management, security, observability
+- **Linkerd** - Ultra-light service mesh
+- **Consul** - Service discovery and mesh
+- **Network Service Mesh** - L2/L3 network automation
+- **NGINX Service Mesh** - NGINX-based mesh
+- **Kuma** - Universal service mesh
+- **Open Service Mesh** - Lightweight SMI implementation
+
+### Adapter Operations
+
+<Steps>
+  <Step title="View Adapters">
+    Check available adapters:
+    
+    ```bash
+    mesheryctl system status
+    ```
+    
+    Output shows adapter status:
+    ```
+    ADAPTER                  STATUS      VERSION
+    meshery-istio           RUNNING     v0.6.0
+    meshery-linkerd         RUNNING     v0.6.0
+    meshery-consul          STOPPED     v0.6.0
+    ```
+  </Step>
+  
+  <Step title="Deploy Adapter">
+    Adapters auto-deploy when needed, or manually start:
+    
+    ```bash
+    mesheryctl system start --adapter meshery-istio
+    ```
+  </Step>
+  
+  <Step title="Use Adapter Features">
+    Adapters provide mesh-specific operations:
+    
+    - Deploy mesh control plane
+    - Configure mesh settings
+    - Run performance tests
+    - Validate mesh configuration
+    - Apply sample applications
+  </Step>
+</Steps>
+
+## Cloud Provider Integrations
+
+### AWS Integration
+
+Access AWS resources in designs:
+
+```yaml
+services:
+  s3-bucket:
+    type: Bucket
+    model: aws-s3
+    settings:
+      spec:
+        bucketName: myapp-storage
+        acl: private
+        versioning:
+          status: Enabled
+  
+  rds-instance:
+    type: DBInstance
+    model: aws-rds
+    settings:
+      spec:
+        dbInstanceClass: db.t3.micro
+        engine: postgres
+        engineVersion: "13.7"
+        allocatedStorage: 20
+```
+
+### Azure Integration
+
+```yaml
+services:
+  storage-account:
+    type: StorageAccount
+    model: azure-storage
+    settings:
+      spec:
+        kind: StorageV2
+        sku:
+          name: Standard_LRS
+  
+  cosmos-db:
+    type: DatabaseAccount
+    model: azure-cosmosdb
+    settings:
+      spec:
+        kind: GlobalDocumentDB
+        databaseAccountOfferType: Standard
+```
+
+### GCP Integration
+
+```yaml
+services:
+  gcs-bucket:
+    type: Bucket
+    model: gcp-storage
+    settings:
+      spec:
+        location: US
+        storageClass: STANDARD
+  
+  cloud-sql:
+    type: DatabaseInstance
+    model: gcp-sql
+    settings:
+      spec:
+        databaseVersion: POSTGRES_13
+        settings:
+          tier: db-f1-micro
+```
+
+## Custom Resource Definitions (CRDs)
+
+### Automatic CRD Discovery
+
+MeshSync automatically discovers CRDs in your clusters:
+
+<Steps>
+  <Step title="Deploy CRDs">
+    Install custom operators in your cluster:
+    
+    ```bash
+    kubectl apply -f https://example.com/operator-crds.yaml
+    ```
+  </Step>
+  
+  <Step title="MeshSync Discovery">
+    MeshSync detects new CRDs and publishes to Meshery:
+    
+    ```bash
+    # Check MeshSync logs
+    kubectl logs -n meshery -l app=meshsync
+    ```
+  </Step>
+  
+  <Step title="Use in Designs">
+    CRDs appear in component library:
+    
+    - Searchable by kind
+    - Available for drag-and-drop
+    - Full schema validation
+  </Step>
+</Steps>
+
+### Example: Cert-Manager
+
+```yaml
+# Certificate and Issuer CRDs
+services:
+  letsencrypt-issuer:
+    type: ClusterIssuer
+    model: cert-manager
+    settings:
+      spec:
+        acme:
+          server: https://acme-v02.api.letsencrypt.org/directory
+          email: admin@example.com
+          privateKeySecretRef:
+            name: letsencrypt-prod
+          solvers:
+          - http01:
+              ingress:
+                class: nginx
+  
+  tls-certificate:
+    type: Certificate
+    model: cert-manager
+    settings:
+      spec:
+        secretName: myapp-tls
+        issuerRef:
+          name: letsencrypt-issuer
+          kind: ClusterIssuer
+        dnsNames:
+        - myapp.example.com
+```
+
+## Integration Registry
+
+The Meshery Registry manages all integrations:
+
+### Viewing Registry
+
+```bash
+# List models in registry
+mesheryctl registry list models
+
+# List components for a model
+mesheryctl registry list components --model kubernetes
+
+# View relationships
+mesheryctl registry list relationships
+```
+
+### Updating Registry
+
+Registry updates automatically with Meshery, but you can manually refresh:
+
+```bash
+# Update registry
+mesheryctl system update
+```
+
+## Integration Best Practices
+
+### Choosing Integrations
+
+1. **Use Native Components**: Prefer integration components over generic ones
+2. **Check Compatibility**: Verify API version support
+3. **Review Relationships**: Understand component dependencies
+4. **Test Incrementally**: Validate small designs before scaling
+
+### Design Organization
+
+```yaml
+# Group related integration components
+name: istio-gateway-stack
+services:
+  # Istio components together
+  gateway:
+    type: Gateway
+    model: istio
+  
+  virtual-service:
+    type: VirtualService
+    model: istio
+    dependsOn:
+    - gateway
+  
+  # Kubernetes components together  
+  deployment:
+    type: Deployment
+    model: kubernetes
+  
+  service:
+    type: Service
+    model: kubernetes
+    dependsOn:
+    - deployment
+```
+
+### Version Management
+
+- **API Versions**: Use stable API versions (v1, v1beta1)
+- **Model Versions**: Track integration model versions
+- **Compatibility**: Test before upgrading integrations
+- **Deprecation**: Watch for deprecated APIs
+
+## Troubleshooting
+
+### Component Not Found
+
+**Symptom**: Component doesn't appear in library
+
+**Solutions**:
+1. Verify CRD is installed: `kubectl get crds`
+2. Check MeshSync is running: `kubectl get pods -n meshery`
+3. Refresh registry: `mesheryctl system update`
+4. Check model registration in UI Registry
+
+### Invalid Component Schema
+
+**Symptom**: Validation errors when configuring component
+
+**Solutions**:
+1. Check API version matches cluster version
+2. Verify required fields are set
+3. Review component documentation
+4. Use `kubectl explain <resource>` for schema details
+
+### Adapter Not Available
+
+**Symptom**: Service mesh adapter not running
+
+**Solutions**:
+```bash
+# Start specific adapter
+mesheryctl system start --adapter meshery-istio
+
+# Check adapter logs
+mesheryctl system logs --adapter meshery-istio
+
+# Restart all adapters
+mesheryctl system restart
+```
+
+## Next Steps
+
+- Build [Design Patterns](/guides/design-patterns) with integrations
+- Deploy across [Multiple Clusters](/guides/multi-cluster-setup)
+- Enforce policies with [Policy Engine](/guides/policy-engine)
+- Explore integration catalog at [meshery.io/integrations](https://meshery.io/integrations)

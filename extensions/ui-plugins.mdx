@@ -1,0 +1,568 @@
+---
+title: UI Extensions
+description: Create remote React components to extend Meshery UI
+---
+
+Meshery's UI extension system allows providers and third-party developers to inject custom React components into the Meshery interface at runtime. These components can add navigation items, settings panels, account pages, and custom functionality without modifying core Meshery code.
+
+## Extension Architecture
+
+UI extensions are loaded dynamically using the `@paciolan/remote-component` library, which fetches JavaScript bundles from URLs and renders them within the Meshery UI context.
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Meshery UI (Next.js)                        │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │          Remote Component Loader (@paciolan)               │  │
+│  │                                                              │  │
+│  │  Fetches JavaScript from provider URL                     │  │
+│  │  Injects shared dependencies (React, MUI, etc.)           │  │
+│  │  Renders component in context                             │  │
+│  └─────────────────────────────────────────────────────────┘  │
+│                              │                                     │
+│                        Fetch bundle                                │
+│                              │                                     │
+│  ┌───────────────────────────▼───────────────────────────────┐  │
+│  │                   Shared Dependencies                       │  │
+│  │  (remote-component.config.js)                             │  │
+│  │                                                              │  │
+│  │  • react, react-dom                                        │  │
+│  │  • @mui/material, @mui/icons-material                       │  │
+│  │  • @sistent/sistent                                          │  │
+│  │  • relay-runtime, graphql                                   │  │
+│  │  • axios, lodash, moment                                    │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                         HTTP Request
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│          Provider Extension Server                              │
+│                                                                 │
+│  /components/navigator.js                                       │
+│  /components/preferences.js                                     │
+│  /components/account.js                                         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Extension Points
+
+Meshery supports five extension points defined in provider capabilities:
+
+### 1. Navigator Extensions
+
+Add items to the left sidebar navigation menu.
+
+```javascript
+// Extension definition in provider capabilities
+{
+  "extensions": {
+    "navigator": [
+      {
+        "title": "Custom Dashboard",
+        "href": {
+          "uri": "/extension/dashboard",
+          "external": false
+        },
+        "component": "https://provider.example.com/components/dashboard.js",
+        "icon": "https://provider.example.com/icons/dashboard.svg",
+        "show": true,
+        "link": true
+      }
+    ]
+  }
+}
+```
+
+**Component Implementation:**
+
+```javascript
+import React from 'react';
+import { Card, CardContent, Typography, Grid } from '@mui/material';
+import { useQuery } from 'relay-runtime';
+
+const DashboardExtension = ({ theme, user }) => {
+  return (
+    <div style={{ padding: theme.spacing(3) }}>
+      <Typography variant="h4" gutterBottom>
+        Welcome, {user.display_name}
+      </Typography>
+      
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Active Deployments</Typography>
+              <Typography variant="h3">24</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Total Patterns</Typography>
+              <Typography variant="h3">142</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </div>
+  );
+};
+
+export default DashboardExtension;
+```
+
+### 2. User Preferences Extensions
+
+Add panels to the user preferences page.
+
+```javascript
+{
+  "extensions": {
+    "user_prefs": [
+      {
+        "component": "https://provider.example.com/components/preferences.js",
+        "type": "provider_settings"
+      }
+    ]
+  }
+}
+```
+
+**Component Implementation:**
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import {
+  Switch,
+  FormControlLabel,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Button,
+} from '@mui/material';
+import axios from 'axios';
+
+const PreferencesExtension = ({ user, preferences, onUpdate }) => {
+  const [settings, setSettings] = useState({
+    emailNotifications: preferences?.emailNotifications || false,
+    defaultView: preferences?.defaultView || 'grid',
+    autoSave: preferences?.autoSave || true,
+  });
+
+  const handleSave = async () => {
+    try {
+      await axios.put('/api/user/preferences', settings);
+      onUpdate(settings);
+    } catch (error) {
+      console.error('Failed to save preferences:', error);
+    }
+  };
+
+  return (
+    <div>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={settings.emailNotifications}
+            onChange={(e) =>
+              setSettings({ ...settings, emailNotifications: e.target.checked })
+            }
+          />
+        }
+        label="Email Notifications"
+      />
+
+      <FormControl fullWidth margin="normal">
+        <InputLabel>Default View</InputLabel>
+        <Select
+          value={settings.defaultView}
+          onChange={(e) =>
+            setSettings({ ...settings, defaultView: e.target.value })
+          }
+        >
+          <MenuItem value="grid">Grid</MenuItem>
+          <MenuItem value="list">List</MenuItem>
+          <MenuItem value="kanban">Kanban</MenuItem>
+        </Select>
+      </FormControl>
+
+      <FormControlLabel
+        control={
+          <Switch
+            checked={settings.autoSave}
+            onChange={(e) =>
+              setSettings({ ...settings, autoSave: e.target.checked })
+            }
+          />
+        }
+        label="Auto-save Designs"
+      />
+
+      <Button variant="contained" color="primary" onClick={handleSave}>
+        Save Preferences
+      </Button>
+    </div>
+  );
+};
+
+export default PreferencesExtension;
+```
+
+### 3. Account Extensions
+
+Add items to the account dropdown menu.
+
+```javascript
+{
+  "extensions": {
+    "account": [
+      {
+        "title": "Billing",
+        "href": {
+          "uri": "/extension/billing",
+          "external": false
+        },
+        "component": "https://provider.example.com/components/billing.js",
+        "show": true
+      }
+    ]
+  }
+}
+```
+
+### 4. GraphQL Extensions
+
+Extend the GraphQL schema with custom queries and mutations.
+
+```javascript
+{
+  "extensions": {
+    "graphql": [
+      {
+        "component": "/api/graphql/custom",
+        "path": "/graphql",
+        "type": "query"
+      }
+    ]
+  }
+}
+```
+
+### 5. Collaborator Extensions
+
+Add collaboration features.
+
+```javascript
+{
+  "extensions": {
+    "collaborator": [
+      {
+        "component": "https://provider.example.com/components/collaborator.js",
+        "type": "presence"
+      }
+    ]
+  }
+}
+```
+
+## Building Extension Components
+
+### Project Setup
+
+```bash
+mkdir provider-extensions
+cd provider-extensions
+npm init -y
+npm install --save-dev webpack webpack-cli babel-loader @babel/core @babel/preset-react
+npm install --save-peer react react-dom
+```
+
+**webpack.config.js:**
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  entry: './src/index.js',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'extension.js',
+    library: 'RemoteComponent',
+    libraryTarget: 'umd',
+  },
+  externals: {
+    react: 'react',
+    'react-dom': 'react-dom',
+    '@mui/material': '@mui/material',
+    '@mui/icons-material': '@mui/icons-material',
+    axios: 'axios',
+  },
+  module: {
+    rules: [
+      {
+        test: /\.jsx?$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['@babel/preset-react'],
+          },
+        },
+      },
+    ],
+  },
+};
+```
+
+### Component Props
+
+All extension components receive these props:
+
+```typescript
+interface ExtensionProps {
+  user: User;                    // Current user object
+  theme: Theme;                  // MUI theme object
+  preferences: Preferences;       // User preferences
+  capabilitiesRegistry: Registry; // Feature registry
+  classes: object;               // CSS classes
+}
+
+interface User {
+  user_id: string;
+  first_name: string;
+  last_name: string;
+  avatar_url: string;
+  email: string;
+  provider: string;
+}
+```
+
+### Using Shared Dependencies
+
+Extensions have access to dependencies defined in `ui/remote-component.config.js`:
+
+```javascript
+import React, { useState, useEffect } from 'react';
+import {
+  Button,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from '@mui/material';
+import { Save as SaveIcon } from '@mui/icons-material';
+import axios from 'axios';
+import { useSnackbar } from 'notistack';
+import moment from 'moment';
+
+const MyExtension = ({ user, theme }) => {
+  const { enqueueSnackbar } = useSnackbar();
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    axios.get('/api/custom/data')
+      .then(response => {
+        setData(response.data);
+        enqueueSnackbar('Data loaded successfully', { variant: 'success' });
+      })
+      .catch(error => {
+        enqueueSnackbar('Failed to load data', { variant: 'error' });
+      });
+  }, []);
+
+  return (
+    <div>
+      <h2>Last updated: {moment(data?.updated_at).fromNow()}</h2>
+      {/* Component UI */}
+    </div>
+  );
+};
+
+export default MyExtension;
+```
+
+### Making API Requests
+
+Use the Meshery Server API from extensions:
+
+```javascript
+import axios from 'axios';
+
+const fetchPatterns = async () => {
+  try {
+    const response = await axios.get('/api/pattern', {
+      params: {
+        page: 0,
+        pagesize: 25,
+        search: '',
+        order: 'updated_at desc',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching patterns:', error);
+    throw error;
+  }
+};
+
+const savePattern = async (pattern) => {
+  const response = await axios.post('/api/pattern', pattern);
+  return response.data;
+};
+```
+
+### Using GraphQL
+
+```javascript
+import { graphql, useLazyLoadQuery } from 'react-relay';
+
+const MyComponentQuery = graphql`
+  query MyComponentQuery {
+    mesheryPatterns(pageSize: 10) {
+      patterns {
+        id
+        name
+        created_at
+      }
+    }
+  }
+`;
+
+const MyComponent = () => {
+  const data = useLazyLoadQuery(MyComponentQuery, {});
+  
+  return (
+    <div>
+      {data.mesheryPatterns.patterns.map(pattern => (
+        <div key={pattern.id}>{pattern.name}</div>
+      ))}
+    </div>
+  );
+};
+```
+
+## Deployment
+
+### 1. Build Extension
+
+```bash
+npm run build
+# Output: dist/extension.js
+```
+
+### 2. Host Extension Bundle
+
+Serve the bundle from your provider server:
+
+```javascript
+// Express.js example
+const express = require('express');
+const app = express();
+
+app.use('/components', express.static('dist', {
+  setHeaders: (res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/javascript');
+  },
+}));
+
+app.listen(8080);
+```
+
+### 3. Update Provider Capabilities
+
+Ensure your capabilities endpoint returns the extension URLs:
+
+```json
+{
+  "extensions": {
+    "navigator": [
+      {
+        "component": "https://provider.example.com/components/extension.js"
+      }
+    ]
+  }
+}
+```
+
+## Testing
+
+### Local Development
+
+```bash
+# In provider-extensions/
+npm run build:watch
+
+# Serve locally
+python3 -m http.server 8000
+# Extensions available at http://localhost:8000/dist/extension.js
+```
+
+### Configure Meshery for Local Testing
+
+```yaml
+# ~/.meshery/config.yaml
+providers:
+  - provider-type: remote
+    provider-url: http://localhost:8080
+    provider-name: Dev Provider
+```
+
+## Best Practices
+
+1. **Performance**:
+   - Minimize bundle size (use webpack code splitting)
+   - Lazy load heavy dependencies
+   - Implement loading states
+
+2. **Error Handling**:
+   - Always handle API errors gracefully
+   - Show user-friendly error messages
+   - Log errors for debugging
+
+3. **Accessibility**:
+   - Use semantic HTML
+   - Provide ARIA labels
+   - Support keyboard navigation
+
+4. **Styling**:
+   - Use MUI theme for consistency
+   - Respect user's dark/light mode preference
+   - Avoid hardcoded colors
+
+5. **Security**:
+   - Validate all user inputs
+   - Sanitize data before rendering
+   - Use HTTPS for all requests
+
+## Troubleshooting
+
+### Component Not Loading
+
+1. Check browser console for CORS errors
+2. Verify component URL is accessible
+3. Check provider capabilities are loaded
+4. Ensure bundle exports component correctly
+
+### Dependency Errors
+
+1. Verify all dependencies are in `remote-component.config.js`
+2. Check webpack externals configuration
+3. Use exact import paths from config
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Provider Plugins" icon="cloud" href="/extensions/providers">
+    Learn about provider system
+  </Card>
+  <Card title="Meshery Operator" icon="kubernetes" href="/extensions/operator/overview">
+    Deploy operator components
+  </Card>
+</CardGroup>

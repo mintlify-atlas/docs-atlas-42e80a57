@@ -1,0 +1,584 @@
+---
+title: Kubernetes Integration
+description: Comprehensive Kubernetes platform integration with multi-cluster management
+---
+
+# Kubernetes Integration
+
+Meshery provides deep integration with Kubernetes, enabling you to manage, configure, and operate Kubernetes clusters and workloads across any infrastructure. Whether running on-premises, in the cloud, or at the edge, Meshery serves as your unified control plane for Kubernetes.
+
+## Overview
+
+Meshery's Kubernetes integration enables:
+
+- **Multi-cluster management**: Connect and manage multiple Kubernetes clusters from a single interface
+- **Visual design**: Drag-and-drop Kubernetes resources in Kanvas
+- **Real-time sync**: Continuous discovery of cluster state with MeshSync
+- **GitOps workflows**: Version control and automated deployment
+- **Configuration validation**: Policy enforcement and best practice checks
+- **Dry-run deployments**: Simulate changes before applying to live clusters
+
+## Supported Kubernetes Platforms
+
+<CardGroup cols={3}>
+  <Card title="Amazon EKS" icon="aws">
+    Elastic Kubernetes Service on AWS
+  </Card>
+  <Card title="Google GKE" icon="google">
+    Google Kubernetes Engine
+  </Card>
+  <Card title="Azure AKS" icon="microsoft">
+    Azure Kubernetes Service
+  </Card>
+  <Card title="Docker Desktop" icon="docker">
+    Kubernetes on Docker Desktop
+  </Card>
+  <Card title="Minikube" icon="server">
+    Local Kubernetes development
+  </Card>
+  <Card title="kind" icon="cube">
+    Kubernetes in Docker
+  </Card>
+  <Card title="OpenShift" icon="redhat">
+    Red Hat OpenShift Container Platform
+  </Card>
+  <Card title="Rancher" icon="tractor">
+    Rancher Kubernetes Engine
+  </Card>
+  <Card title="K3s" icon="lightweight">
+    Lightweight Kubernetes
+  </Card>
+</CardGroup>
+
+## Connecting Kubernetes Clusters
+
+### Prerequisites
+
+- A running Kubernetes cluster
+- `kubectl` configured with cluster access
+- Meshery installed and running
+
+### Connection Methods
+
+<Tabs>
+  <Tab title="Meshery UI">
+    1. Navigate to **Settings** > **Connections**
+    2. Click **+** to add a new connection
+    3. Select **Kubernetes** as the connection type
+    4. Choose connection method:
+       - **In-cluster**: Meshery running inside the cluster
+       - **Out-of-cluster**: Use kubeconfig file
+    5. Upload kubeconfig or paste contents
+    6. Click **Connect** to establish the connection
+    7. Verify connection status shows as **Connected**
+  </Tab>
+  <Tab title="mesheryctl">
+    ```bash
+    # Connect using current kubeconfig context
+    mesheryctl system context create k8s-cluster-1
+
+    # Connect using specific kubeconfig file
+    mesheryctl system context create k8s-cluster-2 \
+      --kubeconfig ~/.kube/config-cluster2
+
+    # Switch active context
+    mesheryctl system context switch k8s-cluster-1
+
+    # List all contexts
+    mesheryctl system context list
+    ```
+  </Tab>
+  <Tab title="Kubernetes API">
+    When Meshery is deployed in-cluster, it automatically detects and connects to the local Kubernetes cluster using the service account mounted at `/var/run/secrets/kubernetes.io/serviceaccount/`.
+  </Tab>
+</Tabs>
+
+### Multi-Cluster Setup
+
+Manage multiple clusters simultaneously:
+
+1. **Add Multiple Connections**: Connect each cluster following the steps above
+2. **Create Environment**: Group clusters into logical environments
+3. **Assign to Workspace**: Control access to clusters by workspace
+4. **Deploy Across Clusters**: Use the same design pattern on multiple clusters
+
+## Kubernetes Resources
+
+Meshery provides comprehensive support for Kubernetes resources:
+
+### Workload Resources
+
+<Accordion title="Pods">
+  **Description**: The smallest deployable unit in Kubernetes
+
+  **Operations**:
+  - View pod status and details
+  - Access logs and events
+  - Execute commands in containers
+  - Port forwarding
+  - Delete and recreate
+
+  **Design in Kanvas**: Drag a Pod component, configure container images, environment variables, and resource limits.
+</Accordion>
+
+<Accordion title="Deployments">
+  **Description**: Declarative updates for Pods and ReplicaSets
+
+  **Operations**:
+  - Create and update deployments
+  - Scale replicas up or down
+  - Rollout and rollback versions
+  - Set resource requests and limits
+  - Configure update strategy
+
+  **Example Configuration**:
+  ```yaml
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: nginx-deployment
+  spec:
+    replicas: 3
+    selector:
+      matchLabels:
+        app: nginx
+    template:
+      metadata:
+        labels:
+          app: nginx
+      spec:
+        containers:
+        - name: nginx
+          image: nginx:1.21
+          ports:
+          - containerPort: 80
+  ```
+</Accordion>
+
+<Accordion title="StatefulSets">
+  **Description**: Manages stateful applications with stable network identities
+
+  **Operations**:
+  - Deploy stateful applications (databases, caches)
+  - Ordered pod creation and deletion
+  - Persistent volume management
+  - Stable network identifiers
+</Accordion>
+
+<Accordion title="DaemonSets">
+  **Description**: Ensures a pod runs on all (or selected) nodes
+
+  **Use Cases**:
+  - Node monitoring agents
+  - Log collection
+  - Storage daemons
+  - Network plugins
+</Accordion>
+
+<Accordion title="Jobs and CronJobs">
+  **Description**: Run batch processes and scheduled tasks
+
+  **Operations**:
+  - One-time batch jobs
+  - Scheduled recurring jobs
+  - Parallel processing
+  - Completion tracking
+</Accordion>
+
+### Service Resources
+
+<Accordion title="Services">
+  **Description**: Exposes applications running on Pods
+
+  **Service Types**:
+  - **ClusterIP**: Internal cluster access (default)
+  - **NodePort**: Exposes on each node's IP at a static port
+  - **LoadBalancer**: Cloud provider load balancer
+  - **ExternalName**: Maps to a DNS name
+
+  **Example**:
+  ```yaml
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: nginx-service
+  spec:
+    selector:
+      app: nginx
+    type: LoadBalancer
+    ports:
+    - port: 80
+      targetPort: 80
+  ```
+</Accordion>
+
+<Accordion title="Ingress">
+  **Description**: HTTP/HTTPS routing to services
+
+  **Features**:
+  - Path-based routing
+  - Host-based routing
+  - TLS termination
+  - Load balancing
+
+  **Example**:
+  ```yaml
+  apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    name: app-ingress
+  spec:
+    rules:
+    - host: app.example.com
+      http:
+        paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: nginx-service
+              port:
+                number: 80
+  ```
+</Accordion>
+
+### Configuration Resources
+
+<Accordion title="ConfigMaps">
+  **Description**: Store non-confidential configuration data
+
+  **Usage**:
+  - Environment variables
+  - Command-line arguments
+  - Configuration files
+
+  **Example**:
+  ```yaml
+  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: app-config
+  data:
+    APP_ENV: production
+    LOG_LEVEL: info
+    config.json: |
+      {
+        "feature_flags": {
+          "new_ui": true
+        }
+      }
+  ```
+</Accordion>
+
+<Accordion title="Secrets">
+  **Description**: Store sensitive information
+
+  **Types**:
+  - Opaque (generic)
+  - TLS certificates
+  - Docker registry credentials
+  - Service account tokens
+
+  **Example**:
+  ```yaml
+  apiVersion: v1
+  kind: Secret
+  metadata:
+    name: db-credentials
+  type: Opaque
+  stringData:
+    username: admin
+    password: super-secret-password
+  ```
+</Accordion>
+
+### Storage Resources
+
+- **PersistentVolumes (PV)**: Cluster-level storage resources
+- **PersistentVolumeClaims (PVC)**: User requests for storage
+- **StorageClasses**: Dynamic provisioning of PVs
+
+### RBAC Resources
+
+- **ServiceAccounts**: Identity for processes running in pods
+- **Roles/ClusterRoles**: Define permissions
+- **RoleBindings/ClusterRoleBindings**: Grant permissions to users/service accounts
+
+## MeshSync: Continuous Discovery
+
+**MeshSync** is a Meshery component that continuously discovers and synchronizes the state of your Kubernetes clusters.
+
+### How MeshSync Works
+
+1. **Discovery**: Scans cluster for all Kubernetes resources
+2. **Synchronization**: Updates Meshery's database with current state
+3. **Change Detection**: Identifies configuration drift
+4. **Event Publishing**: Publishes changes to NATS message broker
+5. **Real-time Updates**: UI reflects cluster state in real-time
+
+### Deployment
+
+MeshSync is deployed as part of the Meshery Operator:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/meshery/meshery-operator/master/config/manifests/default.yaml
+```
+
+Verify MeshSync is running:
+
+```bash
+kubectl get pods -n meshery -l app=meshsync
+```
+
+### Configuration
+
+MeshSync can be configured to:
+
+- **Include/Exclude Namespaces**: Focus on specific namespaces
+- **Resource Filters**: Limit discovery to certain resource types
+- **Sync Interval**: Adjust discovery frequency
+- **Event Filtering**: Control which events are published
+
+## Meshery Operator
+
+The **Meshery Operator** manages the lifecycle of Meshery components in Kubernetes.
+
+### Components Managed
+
+- **MeshSync**: Cluster discovery and synchronization
+- **Meshery Broker**: NATS-based event streaming
+- **Adapters**: Service mesh adapter deployments (optional)
+
+### Installation
+
+<CodeGroup>
+
+```bash kubectl
+kubectl apply -f https://raw.githubusercontent.com/meshery/meshery-operator/master/config/manifests/default.yaml
+```
+
+```bash Helm
+helm repo add meshery https://meshery.io/charts
+helm install meshery-operator meshery/meshery-operator \
+  --namespace meshery --create-namespace
+```
+
+</CodeGroup>
+
+### Custom Resources
+
+The operator defines these CRDs:
+
+- **Broker**: Configures NATS message broker
+- **MeshSync**: Configures cluster discovery
+
+## Visual Design with Kanvas
+
+### Creating Kubernetes Designs
+
+<Steps>
+  <Step title="Open Kanvas">
+    Navigate to **Extensions** > **Kanvas** or visit [kanvas.new](https://kanvas.new)
+  </Step>
+  <Step title="Add Components">
+    Drag Kubernetes components from the left panel onto the canvas:
+    - Deployments
+    - Services
+    - ConfigMaps
+    - Secrets
+    - Ingress
+  </Step>
+  <Step title="Configure Components">
+    Click each component to edit properties:
+    - Container images
+    - Environment variables
+    - Resource limits
+    - Labels and annotations
+  </Step>
+  <Step title="Define Relationships">
+    Meshery automatically infers relationships:
+    - Service → Deployment (selector matching)
+    - ConfigMap → Pod (volume mount)
+    - Secret → Pod (volume mount)
+    - Ingress → Service (backend reference)
+  </Step>
+  <Step title="Validate Design">
+    Click **Validate** to check for:
+    - Missing required fields
+    - Invalid configurations
+    - Policy violations
+  </Step>
+  <Step title="Deploy or Export">
+    - **Deploy**: Click **Deploy** to apply to connected cluster
+    - **Export**: Download as YAML, Helm chart, or Docker Compose
+  </Step>
+</Steps>
+
+### Example: Three-Tier Application
+
+Create a complete web application:
+
+1. **Frontend Deployment + Service**: React/Angular/Vue app
+2. **Backend Deployment + Service**: REST API or GraphQL server
+3. **Database StatefulSet + Service**: PostgreSQL or MongoDB
+4. **Ingress**: External access to frontend
+5. **ConfigMaps**: Application configuration
+6. **Secrets**: Database credentials
+
+Kanvas visualizes all components and their relationships on a single canvas.
+
+## Dry-Run Deployments
+
+Meshery leverages Kubernetes' dry-run capabilities to validate deployments before applying them.
+
+### How to Use Dry-Run
+
+1. **Design Your Application**: Create a design in Kanvas
+2. **Enable Dry-Run**: Toggle "Dry-run" option before deploying
+3. **Review Results**: Meshery shows what would be created/modified
+4. **Identify Issues**: Catch errors before they impact your cluster
+5. **Apply Confidently**: Deploy with confidence after validation
+
+### Benefits
+
+- Validate YAML syntax
+- Check API version compatibility
+- Detect missing fields or invalid values
+- Preview object changes
+- Integrate with CI/CD pipelines
+
+## Configuration Validation
+
+Meshery validates Kubernetes configurations against:
+
+### Built-in Policies
+
+- Resource requests and limits set
+- Liveness and readiness probes configured
+- Security contexts defined
+- Image pull policies specified
+- Non-root users enforced
+
+### OPA Policies
+
+Define custom policies using Open Policy Agent (OPA):
+
+```rego
+package kubernetes.admission
+
+deny[msg] {
+  input.kind == "Deployment"
+  not input.spec.template.spec.securityContext.runAsNonRoot
+  msg := "Deployment must run as non-root user"
+}
+```
+
+Apply OPA policies in Meshery under **Settings** > **Policies**.
+
+### Relationship Policies
+
+Meshery enforces relationship-based policies:
+
+- Services must have matching Deployments
+- Ingress must reference existing Services
+- ConfigMaps/Secrets must be referenced by Pods
+
+## GitOps with Kubernetes
+
+Meshery supports GitOps workflows for Kubernetes:
+
+### Workflow
+
+1. **Design in Kanvas**: Create infrastructure designs
+2. **Export to Git**: Push designs to GitHub repository
+3. **CI/CD Pipeline**: GitHub Actions deploys on commit
+4. **Meshery Snapshots**: Preview changes in pull requests
+5. **Automated Deployment**: Merge triggers deployment
+
+### GitHub Integration
+
+<Steps>
+  <Step title="Connect GitHub">
+    In Meshery, navigate to **Settings** > **Integrations** > **GitHub** and authorize access.
+  </Step>
+  <Step title="Link Repository">
+    Select a repository to store Meshery designs.
+  </Step>
+  <Step title="Enable Snapshots">
+    Turn on "Infrastructure Snapshots" to get previews in PRs.
+  </Step>
+  <Step title="Commit Designs">
+    Export designs from Kanvas directly to your repository.
+  </Step>
+</Steps>
+
+## Performance and Monitoring
+
+Meshery collects metrics from Kubernetes clusters:
+
+### Cluster Metrics
+
+- Node CPU and memory utilization
+- Pod resource consumption
+- Network I/O
+- Storage usage
+
+### Integration with Prometheus
+
+Connect Meshery to Prometheus running in your cluster:
+
+1. Navigate to **Settings** > **Metrics**
+2. Add Prometheus URL (e.g., `http://prometheus.monitoring:9090`)
+3. Meshery queries cluster and application metrics
+4. View metrics in performance test results
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection Failed">
+    **Problem**: Cannot connect to Kubernetes cluster
+
+    **Solutions**:
+    - Verify kubeconfig is valid: `kubectl cluster-info`
+    - Check network connectivity to API server
+    - Ensure Meshery has necessary RBAC permissions
+    - Review Meshery logs for authentication errors
+  </Accordion>
+
+  <Accordion title="MeshSync Not Discovering Resources">
+    **Problem**: Cluster resources not appearing in Meshery
+
+    **Solutions**:
+    - Check MeshSync pod status: `kubectl get pods -n meshery -l app=meshsync`
+    - Review MeshSync logs: `kubectl logs -n meshery <meshsync-pod>`
+    - Verify NATS broker is running
+    - Restart MeshSync: `kubectl rollout restart deployment/meshsync -n meshery`
+  </Accordion>
+
+  <Accordion title="Deployment Validation Errors">
+    **Problem**: Design validation fails in Meshery
+
+    **Solutions**:
+    - Check Kubernetes API version compatibility
+    - Verify required fields are populated
+    - Review OPA policy violations
+    - Use dry-run to identify specific errors
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Service Meshes" icon="network-wired" href="/integrations/service-meshes">
+    Add service mesh capabilities to your Kubernetes clusters
+  </Card>
+  <Card title="Cloud Providers" icon="cloud" href="/integrations/cloud-providers">
+    Integrate AWS, GCP, and Azure services
+  </Card>
+  <Card title="Design Patterns" icon="diagram-project" href="/guides/patterns">
+    Explore pre-built Kubernetes patterns
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/integrations/prometheus-grafana">
+    Monitor cluster and application performance
+  </Card>
+</CardGroup>

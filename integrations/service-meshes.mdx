@@ -1,0 +1,430 @@
+---
+title: Service Mesh Integrations
+description: Manage and operate service meshes with Meshery's comprehensive adapters
+---
+
+# Service Mesh Integrations
+
+Meshery provides first-class support for multiple service mesh implementations through dedicated **adapters**. These adapters enable lifecycle management, configuration, performance testing, and best practice validation for your service mesh infrastructure.
+
+## Supported Service Meshes
+
+Meshery supports the following service mesh integrations:
+
+<CardGroup cols={3}>
+  <Card title="Istio" icon="network-wired">
+    Full-featured service mesh with advanced traffic management, security, and observability
+  </Card>
+  <Card title="Linkerd" icon="link">
+    Lightweight, security-focused service mesh with minimal overhead
+  </Card>
+  <Card title="Consul" icon="box">
+    HashiCorp's service networking platform with service discovery and configuration
+  </Card>
+  <Card title="Kuma" icon="paw">
+    Universal service mesh built on Envoy, works on Kubernetes and VMs
+  </Card>
+  <Card title="Cilium" icon="shield">
+    eBPF-based service mesh with advanced networking and security features
+  </Card>
+  <Card title="NGINX Service Mesh" icon="server">
+    Lightweight service mesh for NGINX Plus users
+  </Card>
+  <Card title="Traefik Mesh" icon="route">
+    Simple service mesh built on Traefik proxy
+  </Card>
+  <Card title="Network Service Mesh" icon="diagram-project">
+    L2/L3 service mesh for cloud native applications
+  </Card>
+  <Card title="AWS App Mesh" icon="aws">
+    AWS-managed service mesh for applications on AWS
+  </Card>
+</CardGroup>
+
+## What Are Service Mesh Adapters?
+
+Meshery adapters are gRPC-based microservices that provide:
+
+- **Lifecycle Management**: Install, upgrade, and uninstall service mesh control planes
+- **Workload Management**: Deploy and configure sample applications
+- **Performance Testing**: Load generation and performance characterization
+- **Configuration Validation**: Best practice analysis and policy enforcement
+- **Custom Configuration**: Apply service mesh-specific resources (VirtualServices, DestinationRules, etc.)
+
+### Adapter Architecture
+
+Each adapter:
+
+1. Runs as a separate container alongside Meshery Server
+2. Communicates via gRPC protocol (defined in `server/meshes/meshops.proto`)
+3. Is versioned independently from Meshery
+4. Maintains compatibility with multiple versions of the service mesh
+
+## Istio Integration
+
+**Repository**: [github.com/meshery/meshery-istio](https://github.com/meshery/meshery-istio)  
+**Port**: 10000/gRPC  
+**Earliest Version**: v1.6.0
+
+### Features
+
+- Install Istio versions from v1.6.0 to latest
+- Deploy Istio add-ons (Prometheus, Grafana, Jaeger, Kiali)
+- Manage Istio resources (VirtualServices, DestinationRules, Gateways, ServiceEntries)
+- Sample applications: Bookinfo, Httpbin, Online Boutique, Image Hub
+- Configuration best practice analysis
+
+### Installation
+
+<Tabs>
+  <Tab title="Meshery UI">
+    1. Navigate to **Lifecycle** > **Adapters**
+    2. Select **Meshery Adapter for Istio**
+    3. Click **Deploy** to install the adapter
+    4. Choose Istio version and configuration profile
+    5. Click **Install** to deploy Istio to your cluster
+  </Tab>
+  <Tab title="Helm">
+    ```bash
+    helm repo add meshery https://meshery.io/charts
+    helm install meshery-istio meshery/meshery-istio \
+      --namespace meshery --create-namespace
+    ```
+  </Tab>
+  <Tab title="mesheryctl">
+    ```bash
+    mesheryctl system start --adapter meshery-istio
+    ```
+  </Tab>
+</Tabs>
+
+### Configuration Example
+
+Apply custom Istio configuration:
+
+```yaml
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: reviews-route
+  namespace: default
+spec:
+  hosts:
+  - reviews
+  http:
+  - match:
+    - headers:
+        end-user:
+          exact: jason
+    route:
+    - destination:
+        host: reviews
+        subset: v2
+  - route:
+    - destination:
+        host: reviews
+        subset: v3
+```
+
+Paste this configuration in the Meshery UI under **Lifecycle** > **Configuration** and click **Apply**.
+
+## Linkerd Integration
+
+**Repository**: [github.com/meshery/meshery-linkerd](https://github.com/meshery/meshery-linkerd)  
+**Port**: 10001/gRPC  
+**Earliest Version**: v2.8.0
+
+### Features
+
+- Install Linkerd stable and edge releases
+- Automatic mTLS between services
+- Traffic splitting and golden metrics
+- Sample applications: Emojivoto, Books
+- Tap and profile debugging tools
+
+### Installation
+
+<CodeGroup>
+
+```bash Helm
+helm install meshery-linkerd meshery/meshery-linkerd \
+  --namespace meshery
+```
+
+```bash kubectl
+kubectl apply -f https://raw.githubusercontent.com/meshery/meshery-linkerd/master/deploy/meshery-linkerd.yaml
+```
+
+</CodeGroup>
+
+### Sample Application
+
+Deploy the Emojivoto sample app:
+
+1. In Meshery UI, go to **Lifecycle** > **Sample Applications**
+2. Select **Emojivoto**
+3. Click **Deploy** to install to your cluster
+4. Meshery will automatically inject Linkerd proxies
+
+## Consul Integration
+
+**Repository**: [github.com/meshery/meshery-consul](https://github.com/meshery/meshery-consul)  
+**Port**: 10002/gRPC  
+**Earliest Version**: v1.8.0
+
+### Features
+
+- Install Consul with service mesh enabled
+- Service discovery and health checking
+- Intentions for service-to-service authorization
+- Multi-datacenter support
+- Connect native integrations
+
+### Installation
+
+```bash
+helm install meshery-consul meshery/meshery-consul \
+  --namespace meshery
+```
+
+### Configuration Example
+
+Define service intentions:
+
+```yaml
+apiVersion: consul.hashicorp.com/v1alpha1
+kind: ServiceIntentions
+metadata:
+  name: web-to-api
+spec:
+  destination:
+    name: api
+  sources:
+  - name: web
+    action: allow
+```
+
+## Kuma Integration
+
+**Repository**: [github.com/meshery/meshery-kuma](https://github.com/meshery/meshery-kuma)  
+**Port**: 10007/gRPC
+
+### Features
+
+- Universal mode: Kubernetes and VM support
+- Multi-zone deployment
+- Traffic policies (retries, timeouts, circuit breakers)
+- Built-in observability with Prometheus and Grafana
+
+### Installation
+
+```bash
+helm install meshery-kuma meshery/meshery-kuma \
+  --namespace meshery
+```
+
+## Cilium Service Mesh Integration
+
+**Repository**: [github.com/meshery/meshery-cilium](https://github.com/meshery/meshery-cilium)  
+**Port**: 10012/gRPC
+
+### Features
+
+- eBPF-based service mesh with no sidecars
+- Layer 3/4 and Layer 7 policy enforcement
+- Hubble observability
+- Network policies and encryption
+
+### Installation
+
+```bash
+helm install meshery-cilium meshery/meshery-cilium \
+  --namespace meshery
+```
+
+## NGINX Service Mesh Integration
+
+**Repository**: [github.com/meshery/meshery-nginx-sm](https://github.com/meshery/meshery-nginx-sm)  
+**Port**: 10010/gRPC
+
+### Features
+
+- Based on NGINX Plus
+- SMI (Service Mesh Interface) compatible
+- Automatic sidecar injection
+- Traffic splitting and access control
+
+## Traefik Mesh Integration
+
+**Repository**: [github.com/meshery/meshery-traefik-mesh](https://github.com/meshery/meshery-traefik-mesh)  
+**Port**: 10006/gRPC
+
+### Features
+
+- Non-intrusive service mesh
+- No sidecar injection required
+- HTTP/TCP routing and load balancing
+- Traffic mirroring and access control
+
+## Network Service Mesh (NSM) Integration
+
+**Repository**: [github.com/meshery/meshery-nsm](https://github.com/meshery/meshery-nsm)  
+**Port**: 10004/gRPC
+
+### Features
+
+- L2/L3 connectivity for cloud native applications
+- Network service composition
+- Support for CNFs (Cloud Native Network Functions)
+
+## AWS App Mesh Integration
+
+### Features
+
+- AWS-managed service mesh control plane
+- Integration with AWS services (ECS, EKS, Fargate)
+- Traffic routing and monitoring
+- End-to-end encryption with TLS
+
+<Note>
+  AWS App Mesh is managed through Meshery's AWS integration components. Ensure you have AWS credentials configured.
+</Note>
+
+## Common Operations
+
+### Deploy a Service Mesh
+
+<Steps>
+  <Step title="Select Adapter">
+    In Meshery UI, navigate to **Lifecycle** > **Adapters** and choose your service mesh adapter.
+  </Step>
+  <Step title="Deploy Adapter">
+    Click **Deploy** to install the adapter if not already running.
+  </Step>
+  <Step title="Install Service Mesh">
+    Click on the adapter card, select a version, and click **Install**.
+  </Step>
+  <Step title="Verify Installation">
+    Check the deployment status in the **Lifecycle** page. The adapter will report when installation is complete.
+  </Step>
+</Steps>
+
+### Apply Custom Configuration
+
+1. Go to **Lifecycle** > **Configuration**
+2. Select your service mesh adapter
+3. Paste your YAML configuration (VirtualServices, DestinationRules, etc.)
+4. Click **Apply Configuration**
+5. Meshery validates and applies the configuration to your cluster
+
+### Deploy Sample Applications
+
+1. Navigate to **Lifecycle** > **Sample Applications**
+2. Select an application (e.g., Bookinfo for Istio)
+3. Click **Deploy**
+4. Access the application using the provided URL
+5. Use the app to generate traffic for testing
+
+### Performance Testing
+
+1. Go to **Performance** in the Meshery UI
+2. Select your service mesh
+3. Choose a load generator (Fortio, Wrk2, or Nighthawk)
+4. Configure test parameters:
+   - URL endpoint
+   - Concurrent connections
+   - Requests per second
+   - Duration
+5. Run the test and view results with latency percentiles and throughput
+
+### Configuration Best Practices
+
+1. Navigate to **Lifecycle** > **Validate Configuration**
+2. Select your service mesh adapter
+3. Click **Run Validation**
+4. Meshery analyzes your configuration against best practices
+5. Review recommendations and apply suggested fixes
+
+## Service Mesh Comparison
+
+| Feature | Istio | Linkerd | Consul | Kuma | Cilium |
+|---------|-------|---------|--------|------|--------|
+| **Architecture** | Envoy sidecars | Linkerd2-proxy | Envoy sidecars | Envoy sidecars | eBPF (no sidecar) |
+| **mTLS** | Yes | Yes | Yes | Yes | Yes |
+| **Multi-cluster** | Yes | Yes | Yes | Yes | Yes |
+| **Multi-tenancy** | Yes | No | Yes | Yes | Yes |
+| **VM Support** | Yes | No | Yes | Yes | Limited |
+| **Observability** | Prometheus, Grafana, Jaeger, Kiali | Prometheus, Grafana | Prometheus, Grafana | Prometheus, Grafana | Hubble, Prometheus, Grafana |
+| **Traffic Management** | Advanced | Basic | Basic | Advanced | Advanced |
+| **Complexity** | High | Low | Medium | Medium | Medium |
+
+## Adapter Management via CLI
+
+### List Available Adapters
+
+```bash
+mesheryctl system adapter list
+```
+
+### Deploy Specific Adapter
+
+```bash
+mesheryctl system adapter deploy meshery-istio
+```
+
+### Remove Adapter
+
+```bash
+mesheryctl system adapter remove meshery-istio
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Adapter Not Connecting">
+    **Symptom**: Adapter shows as disconnected in Meshery UI
+
+    **Solutions**:
+    - Verify adapter pod is running: `kubectl get pods -n meshery`
+    - Check adapter logs: `kubectl logs -n meshery <adapter-pod-name>`
+    - Ensure gRPC port is accessible
+    - Restart the adapter: `kubectl rollout restart deployment/<adapter-name> -n meshery`
+  </Accordion>
+
+  <Accordion title="Service Mesh Installation Fails">
+    **Symptom**: Mesh installation fails or times out
+
+    **Solutions**:
+    - Check cluster resources (CPU, memory)
+    - Verify RBAC permissions for Meshery service account
+    - Review Kubernetes events: `kubectl get events -n <mesh-namespace>`
+    - Check adapter version compatibility with mesh version
+  </Accordion>
+
+  <Accordion title="Configuration Not Applied">
+    **Symptom**: Custom configuration doesn't take effect
+
+    **Solutions**:
+    - Validate YAML syntax
+    - Ensure namespace exists
+    - Check for conflicting configurations
+    - Verify CRDs are installed: `kubectl get crds`
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Performance Testing" icon="gauge" href="/guides/performance">
+    Learn how to benchmark your service mesh
+  </Card>
+  <Card title="Design Patterns" icon="diagram-project" href="/guides/patterns">
+    Explore service mesh design patterns
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/integrations/prometheus-grafana">
+    Set up monitoring for your service mesh
+  </Card>
+  <Card title="Best Practices" icon="circle-check" href="/guides/best-practices">
+    Configuration best practices and validation
+  </Card>
+</CardGroup>

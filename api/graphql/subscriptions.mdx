@@ -1,0 +1,697 @@
+---
+title: GraphQL Subscriptions
+description: Real-time GraphQL subscriptions in Meshery
+---
+
+Subscriptions provide real-time updates via WebSocket connections. They enable live monitoring of Meshery resources and events.
+
+## WebSocket Connection
+
+Subscriptions require a WebSocket connection to the GraphQL endpoint:
+
+```
+ws://localhost:9081/api/system/graphql/query
+```
+
+For secure connections:
+```
+wss://your-meshery-server.com/api/system/graphql/query
+```
+
+## Events Subscription
+
+### Subscribe to Events
+
+Receive real-time platform events (errors, warnings, info messages).
+
+```graphql
+subscription {
+  subscribeEvents {
+    id
+    userID
+    actedUpon
+    operationID
+    systemID
+    severity
+    action
+    status
+    category
+    description
+    metadata
+    createdAt
+    updatedAt
+  }
+}
+```
+
+**Response Stream:**
+
+```json
+{
+  "data": {
+    "subscribeEvents": {
+      "id": "event-uuid",
+      "userID": "user-uuid",
+      "severity": "informational",
+      "action": "create",
+      "category": "connection",
+      "description": "Connection my-cluster created.",
+      "createdAt": "2024-03-03T10:30:00Z"
+    }
+  }
+}
+```
+
+**Event Severities:**
+- `emergency` - System is unusable
+- `alert` - Action must be taken immediately
+- `critical` - Critical conditions
+- `error` - Error conditions
+- `warning` - Warning conditions
+- `informational` - Informational messages
+- `debug` - Debug-level messages
+
+---
+
+## Controller Status Subscription
+
+### Subscribe to Meshery Controllers Status
+
+Monitor Meshery Operator, MeshSync, and Broker status in real-time.
+
+```graphql
+subscription ControllerStatus($connectionIDs: [String!]) {
+  subscribeMesheryControllersStatus(connectionIDs: $connectionIDs) {
+    connectionID
+    controller
+    status
+    version
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "connectionIDs": ["connection-uuid-1", "connection-uuid-2"]
+}
+```
+
+**Response Stream:**
+
+```json
+{
+  "data": {
+    "subscribeMesheryControllersStatus": [
+      {
+        "connectionID": "connection-uuid-1",
+        "controller": "OPERATOR",
+        "status": "DEPLOYED",
+        "version": "v0.7.0"
+      },
+      {
+        "connectionID": "connection-uuid-1",
+        "controller": "MESHSYNC",
+        "status": "CONNECTED",
+        "version": "v0.7.0"
+      },
+      {
+        "connectionID": "connection-uuid-1",
+        "controller": "BROKER",
+        "status": "ENABLED",
+        "version": "v0.7.0"
+      }
+    ]
+  }
+}
+```
+
+**Controller Types:**
+- `OPERATOR` - Meshery Operator
+- `MESHSYNC` - MeshSync discovery engine
+- `BROKER` - NATS message broker
+
+**Controller Statuses:**
+- `DEPLOYED` - Successfully deployed
+- `NOTDEPLOYED` - Not deployed
+- `DEPLOYING` - Deployment in progress
+- `UNDEPLOYED` - Undeployed
+- `ENABLED` - Enabled and running
+- `RUNNING` - Running
+- `CONNECTED` - Connected
+- `UNKNOWN` - Unknown status
+
+---
+
+## Performance Testing Subscription
+
+### Subscribe to Performance Profiles
+
+Watch for changes to performance test profiles.
+
+```graphql
+subscription PerfProfiles($selector: PageFilter!) {
+  subscribePerfProfiles(selector: $selector) {
+    page
+    page_size
+    total_count
+    profiles {
+      id
+      name
+      duration
+      concurrent_request
+      qps
+      endpoints
+      load_generators
+      created_at
+      updated_at
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "page": "0",
+    "pageSize": "25"
+  }
+}
+```
+
+---
+
+### Subscribe to Performance Results
+
+Receive real-time performance test results for a specific profile.
+
+```graphql
+subscription PerfResults(
+  $selector: PageFilter!
+  $profileID: String!
+) {
+  subscribePerfResults(
+    selector: $selector
+    profileID: $profileID
+  ) {
+    page
+    page_size
+    total_count
+    results {
+      meshery_id
+      name
+      mesh
+      test_id
+      test_start_time
+      runner_results
+      server_metrics
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "page": "0",
+    "pageSize": "10"
+  },
+  "profileID": "profile-uuid"
+}
+```
+
+---
+
+## Configuration Subscription
+
+### Subscribe to Configuration Changes
+
+Monitor changes to patterns (designs) and filters.
+
+```graphql
+subscription ConfigChanges(
+  $patternSelector: PageFilter!
+  $filterSelector: PageFilter!
+) {
+  subscribeConfiguration(
+    patternSelector: $patternSelector
+    filterSelector: $filterSelector
+  ) {
+    patterns {
+      page
+      page_size
+      total_count
+      patterns {
+        id
+        name
+        visibility
+        updated_at
+      }
+    }
+    filters {
+      page
+      page_size
+      total_count
+      filters {
+        id
+        name
+        visibility
+        updated_at
+      }
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "patternSelector": {
+    "page": "0",
+    "pageSize": "25"
+  },
+  "filterSelector": {
+    "page": "0",
+    "pageSize": "25"
+  }
+}
+```
+
+---
+
+## Cluster Resources Subscription
+
+### Subscribe to Cluster Resources
+
+Watch Kubernetes cluster resources in real-time.
+
+```graphql
+subscription ClusterResources(
+  $k8scontextIDs: [String!]
+  $namespace: String!
+) {
+  subscribeClusterResources(
+    k8scontextIDs: $k8scontextIDs
+    namespace: $namespace
+  ) {
+    resources {
+      kind
+      count
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "k8scontextIDs": ["context-uuid"],
+  "namespace": "default"
+}
+```
+
+**Response Stream:**
+
+```json
+{
+  "data": {
+    "subscribeClusterResources": {
+      "resources": [
+        { "kind": "Pod", "count": 42 },
+        { "kind": "Service", "count": 15 },
+        { "kind": "Deployment", "count": 8 }
+      ]
+    }
+  }
+}
+```
+
+---
+
+## Kubernetes Contexts Subscription
+
+### Subscribe to K8s Context Changes
+
+Monitor Kubernetes connection/context changes.
+
+```graphql
+subscription K8sContexts($selector: PageFilter!) {
+  subscribeK8sContext(selector: $selector) {
+    total_count
+    contexts {
+      id
+      name
+      server
+      version
+      deployment_type
+      connection_id
+      created_at
+      updated_at
+    }
+  }
+}
+```
+
+---
+
+## MeshModel Summary Subscription
+
+### Subscribe to MeshModel Summary
+
+Watch for changes in MeshModel statistics.
+
+```graphql
+subscription MeshModelSummary($selector: MeshModelSummarySelector!) {
+  subscribeMeshModelSummary(selector: $selector) {
+    components {
+      name
+      count
+    }
+    relationships {
+      name
+      count
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "type": "models"
+  }
+}
+```
+
+---
+
+## JavaScript Implementation
+
+### Using graphql-ws
+
+```javascript
+import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'ws://localhost:9081/api/system/graphql/query',
+  connectionParams: {
+    Authorization: `Bearer ${token}`
+  },
+  on: {
+    connected: () => console.log('WebSocket connected'),
+    error: (error) => console.error('WebSocket error:', error),
+    closed: () => console.log('WebSocket closed')
+  }
+});
+
+// Subscribe to events
+const unsubscribe = client.subscribe(
+  {
+    query: `
+      subscription {
+        subscribeEvents {
+          id
+          severity
+          description
+          createdAt
+        }
+      }
+    `
+  },
+  {
+    next: (result) => {
+      console.log('Event received:', result.data.subscribeEvents);
+    },
+    error: (error) => {
+      console.error('Subscription error:', error);
+    },
+    complete: () => {
+      console.log('Subscription complete');
+    }
+  }
+);
+
+// Unsubscribe when done
+// unsubscribe();
+```
+
+---
+
+### Using Apollo Client
+
+```javascript
+import { ApolloClient, InMemoryCache, split, HttpLink } from '@apollo/client';
+import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
+import { getMainDefinition } from '@apollo/client/utilities';
+import { createClient } from 'graphql-ws';
+
+const httpLink = new HttpLink({
+  uri: 'http://localhost:9081/api/system/graphql/query',
+  headers: {
+    Authorization: `Bearer ${token}`
+  }
+});
+
+const wsLink = new GraphQLWsLink(
+  createClient({
+    url: 'ws://localhost:9081/api/system/graphql/query',
+    connectionParams: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+);
+
+const splitLink = split(
+  ({ query }) => {
+    const definition = getMainDefinition(query);
+    return (
+      definition.kind === 'OperationDefinition' &&
+      definition.operation === 'subscription'
+    );
+  },
+  wsLink,
+  httpLink
+);
+
+const client = new ApolloClient({
+  link: splitLink,
+  cache: new InMemoryCache()
+});
+
+// Use subscription
+import { useSubscription, gql } from '@apollo/client';
+
+const EVENTS_SUBSCRIPTION = gql`
+  subscription {
+    subscribeEvents {
+      id
+      severity
+      description
+      createdAt
+    }
+  }
+`;
+
+function EventsComponent() {
+  const { data, loading, error } = useSubscription(EVENTS_SUBSCRIPTION);
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <div>
+      <h3>Latest Event:</h3>
+      <p>{data?.subscribeEvents?.description}</p>
+    </div>
+  );
+}
+```
+
+---
+
+## React Hook Example
+
+```javascript
+import { useEffect, useState } from 'react';
+import { createClient } from 'graphql-ws';
+
+function useEventsSubscription(token) {
+  const [events, setEvents] = useState([]);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const client = createClient({
+      url: 'ws://localhost:9081/api/system/graphql/query',
+      connectionParams: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const unsubscribe = client.subscribe(
+      {
+        query: `
+          subscription {
+            subscribeEvents {
+              id
+              severity
+              description
+              createdAt
+            }
+          }
+        `
+      },
+      {
+        next: (result) => {
+          setEvents(prev => [result.data.subscribeEvents, ...prev].slice(0, 100));
+        },
+        error: (err) => {
+          setError(err);
+        }
+      }
+    );
+
+    return () => unsubscribe();
+  }, [token]);
+
+  return { events, error };
+}
+
+// Usage
+function EventsLog() {
+  const { events, error } = useEventsSubscription(token);
+
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      {events.map(event => (
+        <div key={event.id}>
+          <span className={event.severity}>{event.severity}</span>
+          <p>{event.description}</p>
+          <time>{new Date(event.createdAt).toLocaleString()}</time>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+## Python Implementation
+
+```python
+import asyncio
+import websockets
+import json
+
+async def subscribe_events(token):
+    uri = "ws://localhost:9081/api/system/graphql/query"
+    
+    # Connection initialization message for graphql-ws protocol
+    init_message = {
+        "type": "connection_init",
+        "payload": {
+            "Authorization": f"Bearer {token}"
+        }
+    }
+    
+    # Subscription message
+    subscribe_message = {
+        "id": "1",
+        "type": "start",
+        "payload": {
+            "query": """
+                subscription {
+                    subscribeEvents {
+                        id
+                        severity
+                        description
+                        createdAt
+                    }
+                }
+            """
+        }
+    }
+    
+    async with websockets.connect(uri, subprotocols=["graphql-ws"]) as websocket:
+        # Initialize connection
+        await websocket.send(json.dumps(init_message))
+        
+        # Wait for connection acknowledgment
+        response = await websocket.recv()
+        print(f"Connection response: {response}")
+        
+        # Send subscription
+        await websocket.send(json.dumps(subscribe_message))
+        
+        # Receive events
+        while True:
+            message = await websocket.recv()
+            data = json.loads(message)
+            
+            if data.get("type") == "data":
+                event = data["payload"]["data"]["subscribeEvents"]
+                print(f"Event: [{event['severity']}] {event['description']}")
+            elif data.get("type") == "complete":
+                break
+
+# Run subscription
+asyncio.run(subscribe_events('your-token'))
+```
+
+---
+
+## Best Practices
+
+### Connection Management
+
+1. **Reconnect on Disconnect**: Implement automatic reconnection logic
+2. **Heartbeat**: Send periodic pings to keep connection alive
+3. **Clean Shutdown**: Properly unsubscribe before closing
+
+### Resource Management
+
+1. **Limit Active Subscriptions**: Don't subscribe to too many streams simultaneously
+2. **Pagination**: Use appropriate page sizes for bulk subscriptions
+3. **Filter Early**: Apply filters to reduce data volume
+
+### Error Handling
+
+1. **Handle Connection Errors**: Network failures, authentication errors
+2. **Handle Subscription Errors**: Invalid queries, authorization failures
+3. **Graceful Degradation**: Fall back to polling if WebSocket fails
+
+---
+
+## Troubleshooting
+
+### Connection Refused
+
+**Issue**: Cannot establish WebSocket connection
+
+**Solution**:
+- Verify Meshery Server is running
+- Check firewall rules allow WebSocket connections
+- Ensure using correct protocol (`ws://` or `wss://`)
+
+### Authentication Failed
+
+**Issue**: WebSocket connection closes immediately
+
+**Solution**:
+- Verify token is valid and not expired
+- Check token is included in `connectionParams`
+- Ensure token has necessary permissions
+
+### No Data Received
+
+**Issue**: Subscription established but no events received
+
+**Solution**:
+- Verify filters are not too restrictive
+- Check connection IDs are valid
+- Ensure relevant events are being generated

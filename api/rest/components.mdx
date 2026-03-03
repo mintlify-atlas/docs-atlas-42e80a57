@@ -1,0 +1,449 @@
+---
+title: Components
+description: REST API endpoints for Meshery MeshModel components
+---
+
+MeshModel components represent infrastructure and application building blocks in Meshery. They define Kubernetes resources, service mesh configurations, and other cloud native primitives.
+
+## List All Components
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:9081/api/meshmodels/components?page=0&pagesize=25
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'http://localhost:9081/api/meshmodels/components?page=0&pagesize=25'
+);
+const data = await response.json();
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/components`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="pagesize" type="string" default="25">
+  Number of components per page. Use `all` to return all results.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term for component name
+</ParamField>
+
+<ParamField query="order" type="string">
+  Field to order by
+</ParamField>
+
+<ParamField query="sort" type="string" default="asc">
+  Sort direction: `asc` or `desc`
+</ParamField>
+
+<ParamField query="annotations" type="string">
+  Filter by annotation components:
+  - `true` - Only return annotation components
+  - `false` - Exclude annotation components
+  - Any other value - Return all components
+</ParamField>
+
+### Response
+
+<ResponseField name="page" type="integer">
+  Current page number
+</ResponseField>
+
+<ResponseField name="page_size" type="integer">
+  Number of items per page
+</ResponseField>
+
+<ResponseField name="total_count" type="integer">
+  Total number of components
+</ResponseField>
+
+<ResponseField name="components" type="array">
+  Array of component objects
+  <Expandable title="Component Object">
+    <ResponseField name="id" type="string">
+      Unique component identifier
+    </ResponseField>
+    <ResponseField name="component" type="object">
+      Component definition
+    </ResponseField>
+    <ResponseField name="displayName" type="string">
+      Human-readable component name
+    </ResponseField>
+    <ResponseField name="kind" type="string">
+      Component kind (e.g., Deployment, Service, VirtualService)
+    </ResponseField>
+    <ResponseField name="apiVersion" type="string">
+      Kubernetes API version
+    </ResponseField>
+    <ResponseField name="schema" type="object">
+      JSON schema for the component
+    </ResponseField>
+    <ResponseField name="model" type="object">
+      Parent model information
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example Response:**
+
+```json
+{
+  "page": 0,
+  "page_size": 25,
+  "total_count": 5432,
+  "components": [
+    {
+      "id": "component-uuid",
+      "component": {
+        "kind": "Deployment",
+        "schema": "...",
+        "version": "v1.0.0"
+      },
+      "displayName": "Deployment",
+      "kind": "Deployment",
+      "apiVersion": "apps/v1",
+      "model": {
+        "name": "kubernetes",
+        "version": "v1.28.0",
+        "category": "Orchestration & Management"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## Get Components by Name
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:9081/api/meshmodels/components/{name}
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/components/{name}`
+
+### Path Parameters
+
+<ParamField path="name" type="string" required>
+  Component name (e.g., `Deployment`, `Service`, `VirtualService`)
+</ParamField>
+
+### Query Parameters
+
+Same as List All Components endpoint.
+
+### Response
+
+Returns all versions and variants of components matching the name.
+
+---
+
+## Get Components by Category
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/categories/{category}/components?page=0&pagesize=25"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/categories/{category}/components`
+
+### Path Parameters
+
+<ParamField path="category" type="string" required>
+  Category name (e.g., `orchestration-and-management`, `observability`)
+</ParamField>
+
+### Query Parameters
+
+Same as List All Components endpoint.
+
+---
+
+## Get Components by Model
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/models/{model}/components?page=0&pagesize=25"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/models/{model}/components`
+
+### Path Parameters
+
+<ParamField path="model" type="string" required>
+  Model name (e.g., `kubernetes`, `istio`, `nginx-ingress`)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="version" type="string">
+  Filter by model version
+</ParamField>
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="pagesize" type="string" default="25">
+  Page size
+</ParamField>
+
+<ParamField query="annotations" type="string">
+  Filter annotation components
+</ParamField>
+
+---
+
+## Get Components by Category and Model
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/categories/{category}/models/{model}/components"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/categories/{category}/models/{model}/components`
+
+### Path Parameters
+
+<ParamField path="category" type="string" required>
+  Category name
+</ParamField>
+
+<ParamField path="model" type="string" required>
+  Model name
+</ParamField>
+
+---
+
+## Get Specific Component by Name, Model, and Category
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/categories/{category}/models/{model}/components/{name}"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/categories/{category}/models/{model}/components/{name}`
+
+### Path Parameters
+
+<ParamField path="category" type="string" required>
+  Category name
+</ParamField>
+
+<ParamField path="model" type="string" required>
+  Model name
+</ParamField>
+
+<ParamField path="name" type="string" required>
+  Component name
+</ParamField>
+
+---
+
+## Register Components
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "modelName": "my-model",
+    "components": [
+      {
+        "kind": "MyComponent",
+        "apiVersion": "v1",
+        "schema": {...}
+      }
+    ]
+  }' \
+  http://localhost:9081/api/meshmodels/components
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/meshmodels/components`
+
+### Request Body
+
+<ParamField body="modelName" type="string" required>
+  Model name for the components
+</ParamField>
+
+<ParamField body="components" type="array" required>
+  Array of component definitions to register
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the registered components.
+
+---
+
+## Update Component Status
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "component-uuid",
+    "status": "enabled"
+  }' \
+  http://localhost:9081/api/meshmodels/component/status
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/meshmodels/{entityType}/status`
+
+### Path Parameters
+
+<ParamField path="entityType" type="string" required>
+  Entity type (e.g., `component`, `model`, `relationship`)
+</ParamField>
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Component ID
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  New status: `enabled` or `disabled`
+</ParamField>
+
+---
+
+## Validate Component
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "component": {...},
+    "model": "kubernetes"
+  }' \
+  http://localhost:9081/api/meshmodels/validate
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/meshmodels/validate`
+
+### Request Body
+
+<ParamField body="component" type="object" required>
+  Component definition to validate
+</ParamField>
+
+<ParamField body="model" type="string">
+  Model name
+</ParamField>
+
+### Response
+
+Returns validation results including errors and warnings.
+
+---
+
+## Generate Components
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source": "kubernetes",
+    "config": {...}
+  }' \
+  http://localhost:9081/api/meshmodels/generate
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/meshmodels/generate`
+
+### Request Body
+
+<ParamField body="source" type="string" required>
+  Source to generate components from (e.g., `kubernetes`, `helm`, `openapi`)
+</ParamField>
+
+<ParamField body="config" type="object">
+  Configuration for component generation
+</ParamField>
+
+---
+
+## Component Schema
+
+Get the JSON schema for a specific component:
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:9081/api/schema/resource/{resourceName}
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/schema/resource/{resourceName}`
+
+### Path Parameters
+
+<ParamField path="resourceName" type="string" required>
+  Resource/component name
+</ParamField>
+
+### Response
+
+Returns the JSON schema definition for the component.
+
+---
+
+## Error Codes
+
+<ResponseField name="400 Bad Request" type="error">
+  Invalid request parameters or malformed JSON
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="error">
+  Component not found
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error" type="error">
+  Server error occurred
+</ResponseField>

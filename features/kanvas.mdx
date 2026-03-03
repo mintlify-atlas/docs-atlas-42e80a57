@@ -1,0 +1,358 @@
+---
+title: Kanvas
+description: Collaborative visual designer for cloud native infrastructure with real-time collaboration and GitOps integration
+---
+
+Kanvas is Meshery's extended visual and collaborative designer that enables teams to design, deploy, and operate cloud native infrastructure together. Built on Meshery's visual designer foundation, Kanvas adds powerful collaboration features, GitOps integration, and infrastructure snapshots for pull requests.
+
+<Note>
+Access Kanvas directly at [https://kanvas.new](https://kanvas.new) or through your Meshery deployment.
+</Note>
+
+## Overview
+
+Kanvas transforms infrastructure management into a collaborative, visual experience:
+
+- **Real-time Collaboration**: Multiple team members can design together simultaneously
+- **GitOps Snapshots**: Get visual infrastructure snapshots in your GitHub pull requests
+- **Multi-player Mode**: See your teammates' cursors, selections, and changes live
+- **Workspace-centric**: Organize infrastructure designs within team workspaces
+- **Visual Diff**: Compare infrastructure changes between versions
+
+<CardGroup cols={2}>
+  <Card title="Collaborative Design" icon="users">
+    Work together with your team in real-time on infrastructure designs
+  </Card>
+  <Card title="GitOps Integration" icon="code-branch">
+    Integrate with GitHub to receive design snapshots in pull requests
+  </Card>
+  <Card title="Infrastructure as Diagrams" icon="diagram-project">
+    Visual representation of complex Kubernetes infrastructure
+  </Card>
+  <Card title="300+ Integrations" icon="puzzle-piece">
+    Support for Kubernetes, service meshes, databases, and cloud providers
+  </Card>
+</CardGroup>
+
+## Collaborative Features
+
+### Multi-player Design
+
+Kanvas enables true multi-user collaboration on infrastructure designs:
+
+<Steps>
+  <Step title="Presence Awareness">
+    See who is currently viewing or editing the design with real-time presence indicators
+  </Step>
+  <Step title="Live Cursors">
+    View other users' cursor positions and selections as they work
+  </Step>
+  <Step title="Real-time Updates">
+    Changes made by any team member appear instantly for all collaborators
+  </Step>
+  <Step title="Conflict Prevention">
+    Visual indicators prevent simultaneous edits to the same component
+  </Step>
+</Steps>
+
+### Comments and Annotations
+
+Communicate directly on your infrastructure designs:
+
+- **Component Comments**: Attach comments to specific infrastructure components
+- **Design-level Notes**: Add general notes and documentation to designs
+- **@Mentions**: Tag team members in comments for notifications
+- **Comment Threads**: Reply to comments and maintain discussion history
+
+<Tip>
+Use comments to document design decisions, ask questions, or provide implementation guidance for your team.
+</Tip>
+
+## GitOps Workflows
+
+### Kanvas Snapshots
+
+Get visual snapshots of your infrastructure changes directly in GitHub pull requests:
+
+<Steps>
+  <Step title="Connect Repository">
+    Link your GitHub repository to Meshery in your Workspace settings
+  </Step>
+  <Step title="Configure Snapshot Action">
+    Add the Kanvas Snapshot GitHub Action to your repository workflow
+  </Step>
+  <Step title="Open Pull Request">
+    Create a PR with infrastructure changes (YAML, Helm, etc.)
+  </Step>
+  <Step title="View Snapshot">
+    The Kanvas bot comments on your PR with a visual snapshot of the changes
+  </Step>
+</Steps>
+
+**GitHub Action Example:**
+
+```yaml
+name: Kanvas Snapshot
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Generate Kanvas Snapshot
+        uses: layer5io/meshery-snapshot-action@v1
+        with:
+          meshery-token: ${{ secrets.MESHERY_TOKEN }}
+          provider-token: ${{ secrets.PROVIDER_TOKEN }}
+          application-type: 'Kubernetes Manifest'
+```
+
+### Visual Diff
+
+Compare infrastructure changes between pull requests:
+
+- **Before/After Views**: See visual representations of infrastructure before and after changes
+- **Component Highlighting**: Changed components are highlighted in the snapshot
+- **Relationship Changes**: View how component relationships are affected
+- **Resource Impact**: Understand the scope of changes at a glance
+
+<Note>
+Kanvas snapshots help reviewers understand infrastructure changes without reading YAML files.
+</Note>
+
+## Workspace Integration
+
+### Team Organization
+
+Kanvas designs are organized within Workspaces:
+
+<CardGroup cols={2}>
+  <Card title="Workspace Sharing">
+    Share designs with specific workspaces and teams
+  </Card>
+  <Card title="Access Control">
+    Manage who can view, edit, or deploy designs
+  </Card>
+  <Card title="Environment Mapping">
+    Associate designs with specific environments and clusters
+  </Card>
+  <Card title="Design Libraries">
+    Build libraries of reusable design components for your team
+  </Card>
+</CardGroup>
+
+### Environments
+
+Environments in Kanvas group connections and credentials:
+
+- **Multi-cluster Environments**: Group multiple Kubernetes clusters together
+- **Connection Management**: Manage cluster connections, databases, and services
+- **Credential Security**: Store credentials securely with environment-level access control
+- **Deployment Targets**: Select environments as deployment targets for designs
+
+## Design Canvas
+
+### Canvas Features
+
+The Kanvas canvas provides powerful visual design capabilities:
+
+**Component Management:**
+- Drag-and-drop from 300+ integrations
+- Multi-select for bulk operations
+- Copy/paste components within and across designs
+- Auto-layout for organizing components
+
+**Visual Relationships:**
+- Automatic relationship detection
+- Manual relationship creation via edge drawing
+- Relationship type visualization (edge, mount, network, etc.)
+- Relationship validation and warnings
+
+**Canvas Controls:**
+- Zoom and pan for navigating large designs
+- Minimap for overview of complex designs
+- Grid snapping for precise alignment
+- Fullscreen mode for focused work
+
+### Component Library
+
+Access thousands of infrastructure components:
+
+<Steps>
+  <Step title="Browse Categories">
+    Navigate through categories like Kubernetes, Service Mesh, Observability, Security
+  </Step>
+  <Step title="Search Components">
+    Use the search bar to find specific components by name or capability
+  </Step>
+  <Step title="Filter by Integration">
+    Filter components by integration type (e.g., only show Istio components)
+  </Step>
+  <Step title="Drag to Canvas">
+    Drag components onto the canvas to add them to your design
+  </Step>
+</Steps>
+
+## Deployment Workflows
+
+### Deploy to Kubernetes
+
+Deploy Kanvas designs directly to connected Kubernetes clusters:
+
+<Steps>
+  <Step title="Validate Design">
+    Run schema and policy validation to ensure design correctness
+  </Step>
+  <Step title="Dry Run">
+    Execute dry run against target clusters to preview deployment
+  </Step>
+  <Step title="Select Targets">
+    Choose which Kubernetes contexts to deploy to
+  </Step>
+  <Step title="Configure Options">
+    Set deployment options like namespace, skip CRDs, or upgrade mode
+  </Step>
+  <Step title="Deploy">
+    Deploy the design and monitor deployment progress
+  </Step>
+</Steps>
+
+### Multi-cluster Deployment
+
+Deploy the same design to multiple clusters:
+
+- Select multiple Kubernetes contexts as deployment targets
+- View per-cluster deployment status
+- Roll back individual cluster deployments if needed
+- Compare deployed state across clusters
+
+## Snapshots and Extensions
+
+### Snapshot Extensions
+
+Kanvas provides snapshot functionality through multiple extensions:
+
+<CardGroup cols={3}>
+  <Card title="GitHub Action">
+    Automated snapshots in GitHub pull requests
+  </Card>
+  <Card title="Helm Plugin">
+    Generate snapshots of Helm charts
+  </Card>
+  <Card title="kubectl Plugin">
+    Create snapshots from kubectl manifests
+  </Card>
+</CardGroup>
+
+**Kubectl Plugin Example:**
+
+```bash
+# Install the kubectl Kanvas snapshot plugin
+kubectl krew install kanvas-snapshot
+
+# Generate snapshot from manifest
+kubectl kanvas-snapshot -f deployment.yaml
+
+# Generate snapshot from running cluster
+kubectl kanvas-snapshot --namespace production
+```
+
+### Helm Plugin
+
+Visualize Helm charts before deployment:
+
+```bash
+# Install Helm plugin
+helm plugin install https://github.com/meshery/helm-kanvas-snapshot
+
+# Generate snapshot of Helm chart
+helm kanvas-snapshot my-chart ./chart-directory
+
+# Snapshot of release
+helm kanvas-snapshot release my-release
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Workspaces for Team Organization">
+    Organize designs within workspaces aligned to your team structure. Create separate workspaces for different projects or environments.
+  </Accordion>
+  <Accordion title="Enable GitHub Integration Early">
+    Set up GitHub integration early in your workflow to get snapshots in all pull requests from the start.
+  </Accordion>
+  <Accordion title="Document with Comments">
+    Use comments liberally to document design decisions, configuration choices, and deployment instructions.
+  </Accordion>
+  <Accordion title="Leverage Dry Run">
+    Always run dry run validation before deploying to production environments to catch configuration issues.
+  </Accordion>
+  <Accordion title="Create Reusable Patterns">
+    Save common design patterns to the catalog for reuse across teams and projects.
+  </Accordion>
+  <Accordion title="Use Environments for Multi-cluster">
+    Group related clusters in environments for easier multi-cluster deployment management.
+  </Accordion>
+</AccordionGroup>
+
+## Integration Examples
+
+### CI/CD Pipeline Integration
+
+Integrate Kanvas into your CI/CD workflows:
+
+```yaml
+# GitLab CI example
+kanvas-validate:
+  stage: validate
+  script:
+    - mesheryctl pattern validate -f ./k8s/design.yaml
+    - mesheryctl pattern deploy -f ./k8s/design.yaml --dry-run
+  only:
+    - merge_requests
+
+kanvas-deploy:
+  stage: deploy
+  script:
+    - mesheryctl pattern deploy -f ./k8s/design.yaml
+  only:
+    - main
+```
+
+### API Integration
+
+Programmatically interact with Kanvas designs:
+
+```javascript
+// Fetch design from Meshery
+const response = await fetch('http://meshery.local/api/pattern', {
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+const designs = await response.json();
+
+// Deploy design via API
+await fetch('http://meshery.local/api/pattern/deploy', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    pattern_file: designContent,
+    pattern_id: designId
+  })
+});
+```
+
+## Related Features
+
+- [Visual Designer](/features/visual-designer) - Core visual design capabilities
+- [GitOps](/features/gitops) - GitOps workflows and version control
+- [Multi-cluster Management](/features/multi-cluster-management) - Managing multiple Kubernetes clusters
+- [Design Catalog](/features/catalog) - Catalog of reusable design patterns

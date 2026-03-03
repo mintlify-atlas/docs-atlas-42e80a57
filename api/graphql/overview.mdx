@@ -1,0 +1,374 @@
+---
+title: GraphQL Overview
+description: Introduction to Meshery's GraphQL API
+---
+
+Meshery provides a GraphQL API for querying and mutating platform resources, as well as subscribing to real-time updates. The GraphQL API complements the REST API by offering more flexible queries and real-time subscriptions.
+
+## GraphQL Endpoint
+
+**API Endpoint:**
+```
+http://localhost:9081/api/system/graphql/query
+```
+
+**Playground (Development):**
+```
+http://localhost:9081/api/system/graphql/playground
+```
+
+The GraphQL Playground provides an interactive environment for exploring the API schema and testing queries.
+
+## Authentication
+
+GraphQL requests require authentication via bearer token:
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getAvailableNamespaces(k8sClusterIDs: [\"cluster-id\"]) { namespace } }"
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+## GraphQL Request Format
+
+### Query
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query GetNamespaces($clusterIDs: [String!]) { getAvailableNamespaces(k8sClusterIDs: $clusterIDs) { namespace } }",
+    "variables": {
+      "clusterIDs": ["cluster-uuid"]
+    }
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+### Mutation
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation ChangeOperator($input: OperatorStatusInput!) { changeOperatorStatus(input: $input) }",
+    "variables": {
+      "input": {
+        "targetStatus": "ENABLED",
+        "contextID": "context-uuid"
+      }
+    }
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+### Subscription (WebSocket)
+
+Subscriptions require a WebSocket connection:
+
+```javascript
+import { createClient } from 'graphql-ws';
+
+const client = createClient({
+  url: 'ws://localhost:9081/api/system/graphql/query',
+  connectionParams: {
+    Authorization: `Bearer ${token}`
+  }
+});
+
+client.subscribe(
+  {
+    query: `
+      subscription {
+        subscribeEvents {
+          id
+          description
+          severity
+          createdAt
+        }
+      }
+    `
+  },
+  {
+    next: (data) => console.log(data),
+    error: (error) => console.error(error),
+    complete: () => console.log('Subscription complete')
+  }
+);
+```
+
+## API Structure
+
+The Meshery GraphQL API consists of three main operation types:
+
+### Queries
+
+Read-only operations to fetch data:
+
+- **Control Plane** - Query service mesh control plane status
+- **Data Plane** - Query service mesh data plane proxies
+- **Namespaces** - List Kubernetes namespaces
+- **Performance** - Fetch performance test results
+- **Patterns** - Query design patterns
+- **Filters** - Query WASM filters
+- **MeshModel** - Query infrastructure models
+- And more...
+
+### Mutations
+
+Write operations to modify state:
+
+- **changeOperatorStatus** - Deploy or undeploy Meshery Operator
+- **changeAdapterStatus** - Enable or disable service mesh adapters
+
+### Subscriptions
+
+Real-time updates via WebSocket:
+
+- **subscribeEvents** - Stream platform events
+- **subscribeMesheryControllersStatus** - Monitor controller status
+- **subscribeClusterResources** - Watch cluster resource changes
+- **subscribePerfResults** - Real-time performance test updates
+- **subscribeConfiguration** - Monitor pattern and filter changes
+- **subscribeMeshModelSummary** - Track MeshModel statistics
+
+## Schema Introspection
+
+Query the GraphQL schema:
+
+```graphql
+query IntrospectionQuery {
+  __schema {
+    types {
+      name
+      kind
+      description
+    }
+  }
+}
+```
+
+## Error Handling
+
+GraphQL errors are returned in the response:
+
+```json
+{
+  "data": null,
+  "errors": [
+    {
+      "message": "Authentication required",
+      "locations": [
+        {
+          "line": 2,
+          "column": 3
+        }
+      ],
+      "path": ["getAvailableNamespaces"]
+    }
+  ]
+}
+```
+
+## Common Types
+
+### Scalars
+
+- **String** - UTF-8 character sequences
+- **Int** - Signed 32-bit integers
+- **Float** - Signed double-precision floating-point values
+- **Boolean** - `true` or `false`
+- **ID** - Unique identifier (serialized as String)
+- **Time** - ISO 8601 timestamp
+- **Map** - JSON object/map
+- **Any** - Any valid JSON value
+
+### Enums
+
+- **MeshType** - Service mesh types (ISTIO, LINKERD, CONSUL, etc.)
+- **Status** - Entity status (ENABLED, DISABLED, CONNECTED, etc.)
+- **Severity** - Event severity (alert, critical, error, warning, etc.)
+- **MesheryController** - Controller types (BROKER, OPERATOR, MESHSYNC)
+- **MesheryControllerStatus** - Controller status values
+
+## Pagination
+
+Many queries support pagination via the `PageFilter` input:
+
+```graphql
+input PageFilter {
+  page: String!
+  pageSize: String!
+  order: String
+  search: String
+  from: String
+  to: String
+  visibility: [String!]
+}
+```
+
+**Example:**
+
+```graphql
+query FetchPatterns($selector: PageFilter!) {
+  fetchPatterns(selector: $selector) {
+    page
+    page_size
+    total_count
+    patterns {
+      id
+      name
+      created_at
+    }
+  }
+}
+```
+
+```json
+{
+  "selector": {
+    "page": "0",
+    "pageSize": "25",
+    "order": "updated_at desc"
+  }
+}
+```
+
+## Directives
+
+### @KubernetesMiddleware
+
+Applied to fields that require Kubernetes context:
+
+```graphql
+type Query {
+  getOperatorStatus(connectionID: String!): MesheryControllersStatusListItem 
+    @KubernetesMiddleware
+}
+```
+
+This directive ensures that Kubernetes connections are validated before executing the query.
+
+## Best Practices
+
+### Request Only What You Need
+
+GraphQL allows you to specify exactly which fields you want:
+
+**Good:**
+```graphql
+query {
+  fetchPatterns(selector: {page: "0", pageSize: "10"}) {
+    patterns {
+      id
+      name
+    }
+  }
+}
+```
+
+**Avoid:**
+```graphql
+query {
+  fetchPatterns(selector: {page: "0", pageSize: "10"}) {
+    patterns {
+      id
+      name
+      pattern_file  # Large field - only request if needed
+      user_id
+      location {
+        branch
+        host
+        path
+        type
+      }
+      catalog_data
+      canSupport
+      errmsg
+      created_at
+      updated_at
+      type {
+        String
+        Valid
+      }
+    }
+  }
+}
+```
+
+### Use Fragments for Reusability
+
+```graphql
+fragment PatternFields on PatternResult {
+  id
+  name
+  visibility
+  created_at
+  updated_at
+}
+
+query {
+  fetchPatterns(selector: {page: "0", pageSize: "10"}) {
+    patterns {
+      ...PatternFields
+    }
+  }
+}
+```
+
+### Handle Errors Gracefully
+
+Always check for both `data` and `errors` in responses:
+
+```javascript
+const response = await fetch(GRAPHQL_ENDPOINT, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ query })
+});
+
+const result = await response.json();
+
+if (result.errors) {
+  console.error('GraphQL errors:', result.errors);
+}
+
+if (result.data) {
+  console.log('Data:', result.data);
+}
+```
+
+## Testing with GraphQL Playground
+
+1. Navigate to `http://localhost:9081/api/system/graphql/playground`
+2. Set authorization header:
+   ```json
+   {
+     "Authorization": "Bearer YOUR_TOKEN"
+   }
+   ```
+3. Explore the schema using the "Docs" tab
+4. Run queries, mutations, and subscriptions interactively
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Queries" icon="magnifying-glass" href="/api/graphql/queries">
+    Explore available queries
+  </Card>
+  <Card title="Mutations" icon="pen-to-square" href="/api/graphql/mutations">
+    Modify resources with mutations
+  </Card>
+  <Card title="Subscriptions" icon="tower-broadcast" href="/api/graphql/subscriptions">
+    Subscribe to real-time updates
+  </Card>
+</CardGroup>

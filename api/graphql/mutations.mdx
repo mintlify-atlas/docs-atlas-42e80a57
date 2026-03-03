@@ -1,0 +1,434 @@
+---
+title: GraphQL Mutations
+description: GraphQL mutations for modifying Meshery resources
+---
+
+Mutations are write operations that modify the state of Meshery resources. All mutations require authentication.
+
+## Operator Management
+
+### Change Operator Status
+
+Deploy, undeploy, or modify the status of Meshery Operator in a Kubernetes cluster.
+
+```graphql
+mutation ChangeOperatorStatus($input: OperatorStatusInput!) {
+  changeOperatorStatus(input: $input)
+}
+```
+
+**Variables:**
+```json
+{
+  "input": {
+    "targetStatus": "ENABLED",
+    "contextID": "connection-uuid"
+  }
+}
+```
+
+**OperatorStatusInput:**
+
+<ParamField body="targetStatus" type="Status" required>
+  Desired operator status:
+  - `ENABLED` - Deploy and enable the operator
+  - `DISABLED` - Disable the operator
+  - `PROCESSING` - Processing state
+  - `UNKNOWN` - Unknown state
+</ParamField>
+
+<ParamField body="contextID" type="string" required>
+  Kubernetes context/connection ID where the operator should be deployed
+</ParamField>
+
+**Response:**
+
+```json
+{
+  "data": {
+    "changeOperatorStatus": "ENABLED"
+  }
+}
+```
+
+**Example (Deploy Operator):**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation ChangeOperator($input: OperatorStatusInput!) { changeOperatorStatus(input: $input) }",
+    "variables": {
+      "input": {
+        "targetStatus": "ENABLED",
+        "contextID": "550e8400-e29b-41d4-a716-446655440000"
+      }
+    }
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+**Example (Undeploy Operator):**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation ChangeOperator($input: OperatorStatusInput!) { changeOperatorStatus(input: $input) }",
+    "variables": {
+      "input": {
+        "targetStatus": "DISABLED",
+        "contextID": "550e8400-e29b-41d4-a716-446655440000"
+      }
+    }
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+---
+
+## Adapter Management
+
+### Change Adapter Status
+
+Deploy or undeploy service mesh adapters (Istio, Linkerd, Consul, etc.).
+
+```graphql
+mutation ChangeAdapterStatus($input: AdapterStatusInput!) {
+  changeAdapterStatus(input: $input)
+}
+```
+
+**Variables:**
+```json
+{
+  "input": {
+    "targetStatus": "ENABLED",
+    "targetPort": "10000",
+    "adapter": "meshery-istio"
+  }
+}
+```
+
+**AdapterStatusInput:**
+
+<ParamField body="targetStatus" type="Status" required>
+  Desired adapter status:
+  - `ENABLED` - Deploy and enable the adapter
+  - `DISABLED` - Disable the adapter
+  - `PROCESSING` - Processing state
+</ParamField>
+
+<ParamField body="targetPort" type="string" required>
+  Port on which the adapter will be deployed
+</ParamField>
+
+<ParamField body="adapter" type="string" required>
+  Adapter name:
+  - `meshery-istio`
+  - `meshery-linkerd`
+  - `meshery-consul`
+  - `meshery-nginx-sm`
+  - `meshery-cilium`
+  - `meshery-kuma`
+  - And others...
+</ParamField>
+
+**Response:**
+
+```json
+{
+  "data": {
+    "changeAdapterStatus": "ENABLED"
+  }
+}
+```
+
+**Example (Deploy Istio Adapter):**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation DeployAdapter($input: AdapterStatusInput!) { changeAdapterStatus(input: $input) }",
+    "variables": {
+      "input": {
+        "targetStatus": "ENABLED",
+        "targetPort": "10000",
+        "adapter": "meshery-istio"
+      }
+    }
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+**Example (Undeploy Adapter):**
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "mutation UndeployAdapter($input: AdapterStatusInput!) { changeAdapterStatus(input: $input) }",
+    "variables": {
+      "input": {
+        "targetStatus": "DISABLED",
+        "targetPort": "10000",
+        "adapter": "meshery-istio"
+      }
+    }
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+---
+
+## Available Adapters
+
+Meshery supports adapters for multiple service meshes and platforms:
+
+### Service Mesh Adapters
+
+- **meshery-istio** - Istio service mesh (port: 10000)
+- **meshery-linkerd** - Linkerd service mesh (port: 10001)
+- **meshery-consul** - HashiCorp Consul (port: 10002)
+- **meshery-nginx-sm** - NGINX Service Mesh (port: 10010)
+- **meshery-cilium** - Cilium service mesh (port: 10012)
+- **meshery-kuma** - Kuma service mesh (port: 10007)
+- **meshery-osm** - Open Service Mesh (port: 10009)
+- **meshery-traefik-mesh** - Traefik Mesh (port: 10006)
+- **meshery-app-mesh** - AWS App Mesh (port: 10005)
+- **meshery-tanzu-sm** - VMware Tanzu Service Mesh (port: 10008)
+
+### Network Service Mesh
+
+- **meshery-nsm** - Network Service Mesh (port: 10004)
+
+---
+
+## Mutation Examples
+
+### Deploy Multiple Controllers
+
+You can chain mutations or run them sequentially:
+
+```graphql
+mutation DeployInfrastructure(
+  $operatorInput: OperatorStatusInput!
+  $adapterInput: AdapterStatusInput!
+) {
+  # Deploy Meshery Operator
+  operator: changeOperatorStatus(input: $operatorInput)
+  
+  # Deploy Istio Adapter
+  adapter: changeAdapterStatus(input: $adapterInput)
+}
+```
+
+**Variables:**
+```json
+{
+  "operatorInput": {
+    "targetStatus": "ENABLED",
+    "contextID": "connection-uuid"
+  },
+  "adapterInput": {
+    "targetStatus": "ENABLED",
+    "targetPort": "10000",
+    "adapter": "meshery-istio"
+  }
+}
+```
+
+---
+
+## Error Handling
+
+Mutations return errors in the standard GraphQL format:
+
+```json
+{
+  "data": {
+    "changeOperatorStatus": null
+  },
+  "errors": [
+    {
+      "message": "connection not found",
+      "locations": [{"line": 2, "column": 3}],
+      "path": ["changeOperatorStatus"],
+      "extensions": {
+        "code": "CONNECTION_NOT_FOUND"
+      }
+    }
+  ]
+}
+```
+
+### Common Error Codes
+
+<ResponseField name="AUTHENTICATION_REQUIRED" type="error">
+  Missing or invalid authentication token
+</ResponseField>
+
+<ResponseField name="CONNECTION_NOT_FOUND" type="error">
+  Kubernetes connection/context not found
+</ResponseField>
+
+<ResponseField name="DEPLOYMENT_FAILED" type="error">
+  Failed to deploy operator or adapter
+</ResponseField>
+
+<ResponseField name="INVALID_INPUT" type="error">
+  Invalid mutation input parameters
+</ResponseField>
+
+---
+
+## Best Practices
+
+### Check Status Before Mutation
+
+Before deploying or undeploying, check the current status:
+
+```graphql
+# First, query current status
+query {
+  getOperatorStatus(connectionID: "connection-uuid") {
+    status
+  }
+}
+
+# Then, if needed, change status
+mutation {
+  changeOperatorStatus(input: {
+    targetStatus: "ENABLED",
+    contextID: "connection-uuid"
+  })
+}
+```
+
+### Handle Async Operations
+
+Deployments are asynchronous. Use subscriptions to monitor progress:
+
+```graphql
+# 1. Trigger deployment
+mutation {
+  changeOperatorStatus(input: {
+    targetStatus: "ENABLED",
+    contextID: "connection-uuid"
+  })
+}
+
+# 2. Subscribe to status updates
+subscription {
+  subscribeMesheryControllersStatus(connectionIDs: ["connection-uuid"]) {
+    connectionID
+    controller
+    status
+  }
+}
+```
+
+### Validate Connection First
+
+Ensure the Kubernetes connection is valid before attempting deployments:
+
+```bash
+# Test connection via REST API first
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/integrations/connections/{connectionId}
+
+# Then proceed with GraphQL mutation
+```
+
+---
+
+## JavaScript Example
+
+```javascript
+const deployOperator = async (contextID) => {
+  const query = `
+    mutation DeployOperator($input: OperatorStatusInput!) {
+      changeOperatorStatus(input: $input)
+    }
+  `;
+
+  const variables = {
+    input: {
+      targetStatus: 'ENABLED',
+      contextID: contextID
+    }
+  };
+
+  const response = await fetch('http://localhost:9081/api/system/graphql/query', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ query, variables })
+  });
+
+  const result = await response.json();
+
+  if (result.errors) {
+    console.error('Deployment failed:', result.errors);
+    return null;
+  }
+
+  return result.data.changeOperatorStatus;
+};
+
+// Usage
+const status = await deployOperator('connection-uuid');
+console.log('Operator status:', status);
+```
+
+---
+
+## Python Example
+
+```python
+import requests
+import json
+
+def deploy_adapter(adapter_name, port, token):
+    query = """
+    mutation DeployAdapter($input: AdapterStatusInput!) {
+      changeAdapterStatus(input: $input)
+    }
+    """
+    
+    variables = {
+        "input": {
+            "targetStatus": "ENABLED",
+            "targetPort": port,
+            "adapter": adapter_name
+        }
+    }
+    
+    response = requests.post(
+        'http://localhost:9081/api/system/graphql/query',
+        headers={
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json'
+        },
+        json={'query': query, 'variables': variables}
+    )
+    
+    result = response.json()
+    
+    if 'errors' in result:
+        print(f"Deployment failed: {result['errors']}")
+        return None
+    
+    return result['data']['changeAdapterStatus']
+
+# Usage
+status = deploy_adapter('meshery-istio', '10000', 'your-token')
+print(f"Adapter status: {status}")
+```

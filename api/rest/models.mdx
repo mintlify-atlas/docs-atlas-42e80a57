@@ -1,0 +1,402 @@
+---
+title: Models
+description: REST API endpoints for Meshery MeshModel models
+---
+
+MeshModel models represent collections of components grouped by technology or platform. Examples include Kubernetes, Istio, AWS, and custom infrastructure models.
+
+## List All Models
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/models?page=0&pagesize=25"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'http://localhost:9081/api/meshmodels/models?page=0&pagesize=25'
+);
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:9081/api/meshmodels/models',
+    params={'page': 0, 'pagesize': 25}
+)
+models = response.json()
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/models`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="pagesize" type="string" default="25">
+  Number of models per page. Use `all` to return all results.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term for model name or display name
+</ParamField>
+
+<ParamField query="order" type="string">
+  Field to order by (e.g., `name`, `created_at`)
+</ParamField>
+
+<ParamField query="sort" type="string" default="asc">
+  Sort direction: `asc` or `desc`
+</ParamField>
+
+<ParamField query="version" type="string">
+  Filter by model version
+</ParamField>
+
+<ParamField query="annotations" type="string">
+  Filter by annotation models:
+  - `true` - Only return annotation models
+  - `false` - Exclude annotation models
+  - Any other value - Return all models
+</ParamField>
+
+### Response
+
+<ResponseField name="page" type="integer">
+  Current page number
+</ResponseField>
+
+<ResponseField name="page_size" type="integer">
+  Number of items per page
+</ResponseField>
+
+<ResponseField name="count" type="integer">
+  Total number of models
+</ResponseField>
+
+<ResponseField name="models" type="array">
+  Array of model objects (grouped by duplicates)
+  <Expandable title="Model Object">
+    <ResponseField name="name" type="string">
+      Model name (e.g., `kubernetes`, `istio`)
+    </ResponseField>
+    <ResponseField name="displayName" type="string">
+      Human-readable model name
+    </ResponseField>
+    <ResponseField name="category" type="object">
+      Category information
+    </ResponseField>
+    <ResponseField name="version" type="string">
+      Model version
+    </ResponseField>
+    <ResponseField name="duplicates" type="integer">
+      Number of duplicate versions
+    </ResponseField>
+    <ResponseField name="versions" type="array">
+      Array of all available versions
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example Response:**
+
+```json
+{
+  "page": 0,
+  "page_size": 25,
+  "count": 342,
+  "models": [
+    {
+      "name": "kubernetes",
+      "displayName": "Kubernetes",
+      "category": {
+        "name": "Orchestration & Management"
+      },
+      "version": "v1.28.0",
+      "duplicates": 15,
+      "versions": ["v1.28.0", "v1.27.0", "v1.26.0"]
+    }
+  ]
+}
+```
+
+---
+
+## Get Models by Name
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/models/{model}?version=v1.28.0"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/models/{model}`
+
+### Path Parameters
+
+<ParamField path="model" type="string" required>
+  Model name (e.g., `kubernetes`, `istio`, `aws`)
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="version" type="string">
+  Filter by specific version. If unspecified, all versions are returned.
+</ParamField>
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="pagesize" type="string" default="25">
+  Page size
+</ParamField>
+
+<ParamField query="annotations" type="string">
+  Filter annotation models
+</ParamField>
+
+### Response
+
+Returns all versions of the specified model.
+
+---
+
+## Get Models by Category
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/categories/{category}/models"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/categories/{category}/models`
+
+### Path Parameters
+
+<ParamField path="category" type="string" required>
+  Category name (lowercase with hyphens, e.g., `orchestration-and-management`)
+</ParamField>
+
+### Query Parameters
+
+Same as List All Models endpoint.
+
+### Response
+
+Returns all models in the specified category.
+
+---
+
+## Get Specific Model by Category
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/categories/{category}/models/{model}"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/categories/{category}/models/{model}`
+
+### Path Parameters
+
+<ParamField path="category" type="string" required>
+  Category name
+</ParamField>
+
+<ParamField path="model" type="string" required>
+  Model name
+</ParamField>
+
+---
+
+## Register Models
+
+<CodeGroup>
+```bash cURL (URL)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://example.com/model.tar.gz",
+    "register": true
+  }' \
+  http://localhost:9081/api/meshmodels/register
+```
+
+```bash cURL (File Upload)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@model.tar.gz" \
+  -F "register=true" \
+  http://localhost:9081/api/meshmodels/register
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/meshmodels/register`
+
+### Request Body
+
+<ParamField body="url" type="string">
+  URL to a model package (.tar.gz)
+</ParamField>
+
+<ParamField body="file" type="file">
+  Model package file (multipart form upload)
+</ParamField>
+
+<ParamField body="register" type="boolean" default="true">
+  Whether to register the model
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns registration status and imported entities.
+
+---
+
+## Delete Model
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/meshmodels/models/{id}
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/meshmodels/models/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Model ID (UUID)
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+---
+
+## Export Model
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:9081/api/meshmodels/export?model=kubernetes&version=v1.28.0" \
+  -o kubernetes-v1.28.0.tar.gz
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/export`
+
+### Query Parameters
+
+<ParamField query="model" type="string" required>
+  Model name to export
+</ParamField>
+
+<ParamField query="version" type="string">
+  Model version to export
+</ParamField>
+
+### Response
+
+Returns a `.tar.gz` archive containing the model definition.
+
+---
+
+## Get Model Registrants
+
+<CodeGroup>
+```bash cURL
+curl http://localhost:9081/api/meshmodels/registrants
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/meshmodels/registrants`
+
+### Response
+
+Returns a list of all model registrants (sources that registered models).
+
+**Example Response:**
+
+```json
+{
+  "registrants": [
+    {
+      "id": "registrant-uuid",
+      "hostname": "artifacthub",
+      "kind": "artifacthub",
+      "status": "registered"
+    },
+    {
+      "id": "registrant-uuid-2",
+      "hostname": "github",
+      "kind": "github",
+      "status": "registered"
+    }
+  ]
+}
+```
+
+---
+
+## Get MeshModel Summary
+
+See the [GraphQL Queries](/api/graphql/queries#get-meshmodel-summary) documentation for getting aggregated statistics about models, components, and relationships.
+
+---
+
+## Model Categories
+
+Common model categories include:
+
+- **Orchestration & Management** - Kubernetes, Nomad, Docker Swarm
+- **Service Mesh** - Istio, Linkerd, Consul
+- **Observability** - Prometheus, Grafana, Jaeger
+- **Security & Compliance** - OPA, Falco, cert-manager
+- **App Definition** - Helm, Kustomize
+- **Cloud Provider** - AWS, GCP, Azure
+- **Database** - PostgreSQL, MongoDB, Redis
+- **Networking** - NGINX, Traefik, Cilium
+
+---
+
+## Error Codes
+
+<ResponseField name="400 Bad Request" type="error">
+  Invalid request parameters or malformed JSON
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="error">
+  Model not found
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error" type="error">
+  Server error occurred
+</ResponseField>

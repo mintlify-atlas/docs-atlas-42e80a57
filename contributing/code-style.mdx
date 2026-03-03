@@ -1,0 +1,573 @@
+---
+title: Code Style and Conventions
+description: Follow Meshery's code style guidelines and best practices for consistent, maintainable code.
+---
+
+Meshery follows established conventions and best practices for Go, JavaScript/React, and documentation. This guide covers the coding standards you should follow when contributing.
+
+## Go Code Style
+
+### Formatting and Imports
+
+All Go code must be formatted with `gofmt` and organized with `goimports`.
+
+**Format your code:**
+
+```bash
+gofmt -w .
+goimports -w .
+```
+
+### Linting with golangci-lint
+
+Meshery uses `golangci-lint` for comprehensive linting. All Go code must pass linting checks before being merged.
+
+**Run linting:**
+
+```bash
+make golangci
+```
+
+**Configuration:** `.github/.golangci.yml`
+
+```yaml
+version: "2"
+run:
+  timeout: 5m
+
+linters:
+  disable:
+    - errcheck
+  exclusions:
+    paths:
+      - server/handlers/doc.go
+      - server/models/meshmodel/core/register.go
+```
+
+### Error Handling
+
+Meshery uses MeshKit's error utilities for consistent error handling across the codebase.
+
+**Use MeshKit errors:**
+
+```go
+import (
+    "github.com/meshery/meshkit/errors"
+)
+
+var (
+    ErrInvalidKubeConfigCode = "1000"
+    ErrNilClientCode         = "1001"
+)
+
+func ErrInvalidKubeConfig(err error) error {
+    return errors.New(ErrInvalidKubeConfigCode, errors.Alert, []string{"Invalid kubeconfig"}, []string{err.Error()}, []string{"Kubeconfig is not valid"}, []string{"Ensure kubeconfig is properly formatted"})
+}
+```
+
+**Analyze and update error codes:**
+
+```bash
+make error
+```
+
+This command analyzes error codes in `./server/helpers` and ensures consistency.
+
+### Package Structure
+
+- **Keep packages focused:** Each package should have a single, well-defined responsibility
+- **Avoid cyclic dependencies:** Structure packages to prevent circular imports
+- **Use internal packages:** Use `internal/` for packages that should not be imported externally
+- **Follow Go project layout:** Follow the [Standard Go Project Layout](https://github.com/golang-standards/project-layout)
+
+**Example structure:**
+
+```
+server/
+├── handlers/          # HTTP handlers
+├── models/            # Data models
+├── internal/          # Internal packages
+│   ├── graphql/      # GraphQL resolvers
+│   └── store/        # Database operations
+├── helpers/           # Utility functions
+└── cmd/               # Application entrypoint
+```
+
+### Testing
+
+- **File naming:** Place tests in `*_test.go` files alongside the code they test
+- **Test naming:** Use descriptive test names: `TestFunctionName_Scenario_ExpectedResult`
+- **Table-driven tests:** Use table-driven tests for testing multiple scenarios
+- **Coverage:** Aim for ≥70% coverage on business logic
+
+**Example test:**
+
+```go
+func TestValidateKubeConfig_ValidConfig_ReturnsNoError(t *testing.T) {
+    config := &rest.Config{
+        Host: "https://kubernetes.default.svc",
+    }
+    
+    err := ValidateKubeConfig(config)
+    if err != nil {
+        t.Errorf("Expected no error, got %v", err)
+    }
+}
+```
+
+**Run tests:**
+
+```bash
+# Run all tests
+go test ./...
+
+# Run only short tests (skip integration tests)
+go test --short ./...
+
+# Run with coverage
+go test -cover ./...
+```
+
+### Dependencies
+
+- **Go modules:** Manage dependencies with Go modules
+- **Tidy regularly:** Run `go mod tidy` to clean up unused dependencies
+- **Vendor directory:** Not used in Meshery; rely on module cache
+
+```bash
+cd server/cmd
+go mod tidy
+```
+
+### Naming Conventions
+
+- **Exported identifiers:** Use PascalCase (e.g., `GetKubeConfig`)
+- **Unexported identifiers:** Use camelCase (e.g., `parseConfig`)
+- **Acronyms:** Keep acronyms uppercase (e.g., `HTTPClient`, `APIURL`)
+- **Interfaces:** Name interfaces with `-er` suffix when appropriate (e.g., `Reader`, `Writer`)
+
+## JavaScript/React Code Style
+
+### ESLint Configuration
+
+Meshery UI uses ESLint with Prettier for code formatting and linting.
+
+**Run linting:**
+
+```bash
+make ui-lint
+```
+
+**Configuration:** `ui/.eslintrc.js`
+
+```javascript
+module.exports = {
+  extends: [
+    'eslint:recommended',
+    'plugin:react/recommended',
+    'next',
+    'plugin:prettier/recommended',
+  ],
+  rules: {
+    'no-trailing-spaces': 'error',
+    'brace-style': ['error', '1tbs'],
+    'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+    'unused-imports/no-unused-imports': 'error',
+    'prettier/prettier': ['error', { endOfLine: 'lf' }],
+  },
+};
+```
+
+### Component Style
+
+**Use functional components with hooks:**
+
+```jsx
+import { useState, useEffect } from 'react';
+
+function WorkspaceFilter({ onFilterChange }) {
+  const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+
+  useEffect(() => {
+    if (selectedWorkspace) {
+      onFilterChange(selectedWorkspace);
+    }
+  }, [selectedWorkspace, onFilterChange]);
+
+  return (
+    <select onChange={(e) => setSelectedWorkspace(e.target.value)}>
+      <option value="">All Workspaces</option>
+      {/* ... */}
+    </select>
+  );
+}
+
+export default WorkspaceFilter;
+```
+
+**Avoid class components:**
+
+```jsx
+// ❌ Don't use class components
+class WorkspaceFilter extends React.Component {
+  // ...
+}
+
+// ✅ Use functional components
+function WorkspaceFilter() {
+  // ...
+}
+```
+
+### Styling
+
+**Prefer Sistent design system:**
+
+```jsx
+import { Button, TextField } from '@sistent/sistent';
+
+function MyComponent() {
+  return (
+    <div>
+      <TextField label="Workspace Name" />
+      <Button variant="contained">Save</Button>
+    </div>
+  );
+}
+```
+
+**Fall back to Material UI when Sistent components are unavailable:**
+
+```jsx
+import { Button } from '@material-ui/core';
+```
+
+### State Management
+
+**Use Redux Toolkit for global state:**
+
+```jsx
+import { createSlice } from '@reduxjs/toolkit';
+
+const workspaceSlice = createSlice({
+  name: 'workspace',
+  initialState: { selected: null },
+  reducers: {
+    setWorkspace: (state, action) => {
+      state.selected = action.payload;
+    },
+  },
+});
+
+export const { setWorkspace } = workspaceSlice.actions;
+export default workspaceSlice.reducer;
+```
+
+**Use local state for component-specific data:**
+
+```jsx
+const [isOpen, setIsOpen] = useState(false);
+const [inputValue, setInputValue] = useState('');
+```
+
+### API Integration
+
+**GraphQL via Relay:**
+
+```jsx
+import { useLazyLoadQuery } from 'react-relay';
+import graphql from 'babel-plugin-relay/macro';
+
+function WorkspaceList() {
+  const data = useLazyLoadQuery(
+    graphql`
+      query WorkspaceListQuery {
+        workspaces {
+          id
+          name
+        }
+      }
+    `,
+    {}
+  );
+
+  return (
+    <ul>
+      {data.workspaces.map((ws) => (
+        <li key={ws.id}>{ws.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+**REST via Axios:**
+
+```jsx
+import axios from 'axios';
+
+const fetchWorkspaces = async () => {
+  try {
+    const response = await axios.get('/api/workspaces');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch workspaces:', error);
+    throw error;
+  }
+};
+```
+
+### Schema-Driven Development
+
+Use JSON schemas to define component props and validation:
+
+```javascript
+const workspaceSchema = {
+  type: 'object',
+  properties: {
+    name: { type: 'string', minLength: 1 },
+    description: { type: 'string' },
+    owner: { type: 'string' },
+  },
+  required: ['name', 'owner'],
+};
+```
+
+### File Naming
+
+- **Components:** PascalCase (e.g., `WorkspaceFilter.js`)
+- **Utilities:** camelCase (e.g., `formatDate.js`)
+- **Hooks:** camelCase with `use` prefix (e.g., `useWorkspace.js`)
+- **Constants:** UPPER_SNAKE_CASE (e.g., `API_ENDPOINTS.js`)
+
+### Import Organization
+
+Organize imports in this order:
+
+```jsx
+// 1. React and framework imports
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+
+// 2. Third-party libraries
+import { Button } from '@material-ui/core';
+import axios from 'axios';
+
+// 3. Internal modules
+import WorkspaceFilter from '../components/WorkspaceFilter';
+import { formatDate } from '../utils/formatDate';
+
+// 4. Styles
+import styles from './Workspace.module.css';
+```
+
+## Commit Messages
+
+### Format
+
+Follow this format for all commit messages:
+
+```
+[component] descriptive message
+
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+### Component Prefixes
+
+- `[UI]` – User interface changes
+- `[Server]` – Backend changes
+- `[CLI]` – mesheryctl changes
+- `[Docs]` – Documentation updates
+- `[CI]` – CI/CD workflow changes
+- `[Models]` – MeshModel changes
+- `[Adapters]` – Adapter-related changes
+
+### Examples
+
+**Good commit messages:**
+
+```
+[UI] Add workspace filter dropdown to designs page
+
+[Server] Fix Kubernetes connection timeout handling
+
+[CLI] Add pattern validation command
+
+[Docs] Update contributing guide with DCO instructions
+```
+
+**Bad commit messages:**
+
+```
+Fixed bug          # Too vague, no component prefix
+WIP                # Not descriptive
+Update files       # No specifics
+```
+
+### Developer Certificate of Origin (DCO)
+
+All commits must be signed with DCO:
+
+```bash
+git commit -s -m "[UI] Add workspace filter dropdown"
+```
+
+The `-s` flag adds this line automatically:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+### Linking Issues
+
+Reference issues in commit messages:
+
+```
+[Server] Fix Kubernetes connection timeout
+
+Fixes #1234
+
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+Keywords that close issues:
+- `Fixes #123`
+- `Closes #123`
+- `Resolves #123`
+
+Keywords that link without closing:
+- `Relates to #123`
+- `References #123`
+- `See #123`
+
+## Git Workflow
+
+### Branching
+
+**Create feature branches from `master`:**
+
+```bash
+git checkout master
+git pull upstream master
+git checkout -b feature/workspace-filter
+```
+
+**Branch naming conventions:**
+
+- `feature/` – New features
+- `fix/` – Bug fixes
+- `docs/` – Documentation updates
+- `refactor/` – Code refactoring
+- `test/` – Test additions or improvements
+
+### Keeping Your Branch Updated
+
+**Rebase on master regularly:**
+
+```bash
+git fetch upstream
+git rebase upstream/master
+```
+
+**Resolve conflicts:**
+
+```bash
+# Fix conflicts in files
+git add <resolved-files>
+git rebase --continue
+```
+
+### Squashing Commits
+
+Squash commits before merging to maintain a clean history:
+
+```bash
+# Interactive rebase for last 3 commits
+git rebase -i HEAD~3
+
+# Mark commits to squash
+# Change 'pick' to 'squash' or 's' for commits to combine
+```
+
+## Documentation Style
+
+### Markdown
+
+- Use ATX-style headers (`#` syntax)
+- Use fenced code blocks with language identifiers
+- Use tables for structured data
+- Use lists for sequential or grouped items
+
+**Example:**
+
+```markdown
+## Installation
+
+Install Meshery with the following command:
+
+```bash
+mesheryctl system start
+```
+
+| Component | Port | Description |
+|-----------|------|-------------|
+| Server    | 9081 | REST/GraphQL API |
+| UI        | 3000 | Web interface |
+```
+
+### MDX for Documentation Pages
+
+Meshery docs use MDX (Markdown with JSX) for enhanced documentation:
+
+```mdx
+---
+title: Page Title
+description: Page description for SEO
+---
+
+<Note>
+  This is an important note.
+</Note>
+
+<Warning>
+  This is a warning message.
+</Warning>
+
+<CardGroup cols={2}>
+  <Card title="Card 1" href="/link1">Description</Card>
+  <Card title="Card 2" href="/link2">Description</Card>
+</CardGroup>
+```
+
+## Code Review Checklist
+
+Before submitting a PR, ensure:
+
+- [ ] Code follows the style guide
+- [ ] All tests pass locally
+- [ ] `make golangci` passes (for Go code)
+- [ ] `make ui-lint` passes (for UI code)
+- [ ] Commit messages follow the format
+- [ ] All commits are signed with DCO
+- [ ] Documentation is updated (if applicable)
+- [ ] No sensitive data (keys, tokens, passwords) is committed
+- [ ] Breaking changes are documented
+- [ ] New features have tests
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Development" icon="server" href="/contributing/server">
+    Learn about Go backend development
+  </Card>
+  <Card title="UI Development" icon="palette" href="/contributing/ui">
+    Learn about React frontend development
+  </Card>
+  <Card title="CLI Development" icon="terminal" href="/contributing/cli">
+    Learn about mesheryctl development
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="/contributing/testing">
+    Learn how to test your changes
+  </Card>
+</CardGroup>

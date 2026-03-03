@@ -1,0 +1,634 @@
+---
+title: GraphQL Queries
+description: Available GraphQL queries in the Meshery API
+---
+
+Queries are read-only operations to fetch data from Meshery. All queries require authentication.
+
+## Service Mesh Queries
+
+### Get Available Addons
+
+Query available addons (Prometheus, Grafana, etc.) for service meshes.
+
+```graphql
+query GetAddons($filter: ServiceMeshFilter) {
+  getAvailableAddons(filter: $filter) {
+    name
+    owner
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "filter": {
+    "type": "ISTIO",
+    "k8sClusterIDs": ["cluster-uuid"]
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "getAvailableAddons": [
+      {
+        "name": "prometheus",
+        "owner": "istio-system"
+      },
+      {
+        "name": "grafana",
+        "owner": "istio-system"
+      }
+    ]
+  }
+}
+```
+
+---
+
+### Get Control Planes
+
+Query control plane information for service meshes.
+
+```graphql
+query GetControlPlanes($filter: ServiceMeshFilter) {
+  getControlPlanes(filter: $filter) {
+    name
+    members {
+      name
+      component
+      version
+      namespace
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "filter": {
+    "type": "ISTIO",
+    "k8sClusterIDs": ["cluster-uuid"]
+  }
+}
+```
+
+---
+
+### Get Data Planes
+
+Query data plane proxy information.
+
+```graphql
+query GetDataPlanes($filter: ServiceMeshFilter) {
+  getDataPlanes(filter: $filter) {
+    name
+    proxies {
+      controlPlaneMemberName
+      containerName
+      image
+      status {
+        ready
+        restartCount
+      }
+    }
+  }
+}
+```
+
+---
+
+## Kubernetes Queries
+
+### Get Available Namespaces
+
+List all namespaces in connected Kubernetes clusters.
+
+```graphql
+query GetNamespaces($clusterIDs: [String!]) {
+  getAvailableNamespaces(k8sClusterIDs: $clusterIDs) {
+    namespace
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "clusterIDs": ["cluster-uuid-1", "cluster-uuid-2"]
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "getAvailableNamespaces": [
+      { "namespace": "default" },
+      { "namespace": "kube-system" },
+      { "namespace": "istio-system" }
+    ]
+  }
+}
+```
+
+---
+
+### Get Kubectl Describe
+
+Get detailed information about a Kubernetes resource.
+
+```graphql
+query GetResourceDetails(
+  $name: String!
+  $kind: String!
+  $namespace: String!
+) {
+  getKubectlDescribe(
+    name: $name
+    kind: $kind
+    namespace: $namespace
+  ) {
+    describe
+    ctxid
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "name": "my-deployment",
+  "kind": "Deployment",
+  "namespace": "default"
+}
+```
+
+---
+
+## Meshery Controllers
+
+### Get Operator Status
+
+Query the status of Meshery Operator in a cluster.
+
+```graphql
+query GetOperatorStatus($connectionID: String!) {
+  getOperatorStatus(connectionID: $connectionID) {
+    connectionID
+    controller
+    status
+    version
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "connectionID": "connection-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "getOperatorStatus": {
+      "connectionID": "connection-uuid",
+      "controller": "OPERATOR",
+      "status": "DEPLOYED",
+      "version": "v0.7.0"
+    }
+  }
+}
+```
+
+---
+
+### Get MeshSync Status
+
+Check MeshSync controller status.
+
+```graphql
+query GetMeshSyncStatus($connectionID: String!) {
+  getMeshsyncStatus(connectionID: $connectionID) {
+    name
+    version
+    status
+    error {
+      code
+      description
+    }
+    connectionID
+  }
+}
+```
+
+---
+
+### Get NATS Status
+
+Check if Meshery Server is connected to NATS broker.
+
+```graphql
+query GetNatsStatus($connectionID: String!) {
+  getNatsStatus(connectionID: $connectionID) {
+    name
+    status
+    connectionID
+  }
+}
+```
+
+---
+
+## Performance Testing
+
+### Get Performance Result
+
+Fetch a specific performance test result.
+
+```graphql
+query GetPerfResult($id: ID!) {
+  getPerfResult(id: $id) {
+    meshery_id
+    name
+    mesh
+    performance_profile
+    test_id
+    test_start_time
+    user_id
+    created_at
+  }
+}
+```
+
+---
+
+### Fetch All Results
+
+Fetch all performance test results with pagination.
+
+```graphql
+query FetchAllResults($selector: PageFilter!) {
+  fetchAllResults(selector: $selector) {
+    page
+    page_size
+    total_count
+    results {
+      meshery_id
+      name
+      mesh
+      test_start_time
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "page": "0",
+    "pageSize": "25",
+    "order": "updated_at desc"
+  }
+}
+```
+
+---
+
+### Fetch Results for Profile
+
+Fetch performance results for a specific profile.
+
+```graphql
+query FetchResults(
+  $selector: PageFilter!
+  $profileID: String!
+) {
+  fetchResults(
+    selector: $selector
+    profileID: $profileID
+  ) {
+    page
+    page_size
+    total_count
+    results {
+      name
+      test_start_time
+      runner_results
+    }
+  }
+}
+```
+
+---
+
+### Get Performance Profiles
+
+List all performance test profiles.
+
+```graphql
+query GetProfiles($selector: PageFilter!) {
+  getPerformanceProfiles(selector: $selector) {
+    page
+    page_size
+    total_count
+    profiles {
+      id
+      name
+      duration
+      concurrent_request
+      qps
+      endpoints
+      load_generators
+      service_mesh
+      created_at
+      updated_at
+    }
+  }
+}
+```
+
+---
+
+## Patterns (Designs)
+
+### Fetch Patterns
+
+Query design patterns with filtering and pagination.
+
+```graphql
+query FetchPatterns($selector: PageFilter!) {
+  fetchPatterns(selector: $selector) {
+    page
+    page_size
+    total_count
+    patterns {
+      id
+      name
+      user_id
+      visibility
+      catalog_data
+      created_at
+      updated_at
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "page": "0",
+    "pageSize": "25",
+    "search": "kubernetes",
+    "order": "name",
+    "visibility": ["public", "published"]
+  }
+}
+```
+
+---
+
+### Fetch Pattern Catalog
+
+Get patterns from the catalog.
+
+```graphql
+query FetchPatternCatalog($selector: CatalogSelector) {
+  fetchPatternCatalogContent(selector: $selector) {
+    id
+    name
+    user_id
+    pattern_file
+    visibility
+    catalog_data
+    created_at
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "page": "0",
+    "pagesize": "25",
+    "search": "",
+    "order": "updated_at desc",
+    "class": ["official"],
+    "technology": ["kubernetes"],
+    "orgID": ["org-uuid"]
+  }
+}
+```
+
+---
+
+## Filters (WASM)
+
+### Fetch Filter Catalog
+
+Get WASM filters from the catalog.
+
+```graphql
+query FetchFilterCatalog($selector: CatalogSelector) {
+  fetchFilterCatalogContent(selector: $selector) {
+    id
+    name
+    filter_file
+    filter_resource
+    visibility
+    catalog_data
+  }
+}
+```
+
+---
+
+## MeshModel
+
+### Get MeshModel Summary
+
+Get aggregated statistics about MeshModel entities.
+
+```graphql
+query GetMeshModelSummary($selector: MeshModelSummarySelector!) {
+  getMeshModelSummary(selector: $selector) {
+    components {
+      name
+      count
+    }
+    relationships {
+      name
+      count
+    }
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "type": "models"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "getMeshModelSummary": {
+      "components": [
+        { "name": "kubernetes", "count": 234 },
+        { "name": "istio", "count": 89 }
+      ],
+      "relationships": [
+        { "name": "edge", "count": 1523 },
+        { "name": "sibling", "count": 456 }
+      ]
+    }
+  }
+}
+```
+
+---
+
+## Telemetry
+
+### Fetch Telemetry Components
+
+Query telemetry components (metrics, logs, traces) for contexts.
+
+```graphql
+query FetchTelemetry($contexts: [String!]) {
+  fetchTelemetryComponents(contexts: $contexts) {
+    name
+    spec
+    status
+  }
+}
+```
+
+**Variables:**
+```json
+{
+  "contexts": ["context-uuid-1", "context-uuid-2"]
+}
+```
+
+---
+
+## Cluster Operations
+
+### Resync Cluster
+
+Trigger cluster resource discovery and sync.
+
+```graphql
+query ResyncCluster(
+  $selector: ReSyncActions
+  $k8scontextID: String!
+) {
+  resyncCluster(
+    selector: $selector
+    k8scontextID: $k8scontextID
+  )
+}
+```
+
+**Variables:**
+```json
+{
+  "selector": {
+    "clearDB": "true",
+    "ReSync": "true",
+    "hardReset": "false"
+  },
+  "k8scontextID": "context-uuid"
+}
+```
+
+**Response:**
+```json
+{
+  "data": {
+    "resyncCluster": "PROCESSING"
+  }
+}
+```
+
+---
+
+## Query Variables
+
+### PageFilter Input
+
+Used for pagination in many queries:
+
+```graphql
+input PageFilter {
+  page: String!          # Page number (0-indexed)
+  pageSize: String!      # Items per page
+  order: String          # Sort field (e.g., "updated_at desc")
+  search: String         # Search term
+  from: String           # Start date filter
+  to: String             # End date filter
+  visibility: [String!]  # Visibility filter (public, private, etc.)
+}
+```
+
+### ServiceMeshFilter Input
+
+```graphql
+input ServiceMeshFilter {
+  type: MeshType         # Mesh type (ISTIO, LINKERD, etc.)
+  k8sClusterIDs: [String!]  # Cluster IDs to filter
+}
+```
+
+### CatalogSelector Input
+
+```graphql
+input CatalogSelector {
+  page: String!
+  pagesize: String!
+  search: String!
+  order: String!
+  class: [String]        # Content class (official, community, etc.)
+  technology: [String]   # Technology filter
+  patternType: [String]  # Pattern type filter
+  orgID: [String]        # Organization filter
+  workspaceID: [String]  # Workspace filter
+}
+```
+
+---
+
+## Error Handling
+
+Queries return errors in the standard GraphQL format:
+
+```json
+{
+  "data": null,
+  "errors": [
+    {
+      "message": "connection not found",
+      "locations": [{"line": 2, "column": 3}],
+      "path": ["getOperatorStatus"]
+    }
+  ]
+}
+```

@@ -1,0 +1,746 @@
+---
+title: UI Development
+description: Contribute to Meshery UI, the Next.js/React frontend that provides visual design and management capabilities.
+---
+
+Meshery UI is the primary user interface for Meshery, built with Next.js and React. It provides visual design capabilities, collaborative GitOps workflows, and infrastructure management through an intuitive web interface.
+
+## Architecture Overview
+
+Meshery UI is composed of several key technologies:
+
+- **Next.js** – React framework with server-side rendering and routing
+- **React** – Component-based UI library
+- **Material UI (MUI)** – Component library for design consistency
+- **Sistent** – Meshery's design system (`@sistent/sistent`)
+- **Redux Toolkit** – Global state management
+- **Relay** – GraphQL client for real-time subscriptions
+- **Axios** – HTTP client for REST APIs
+- **Playwright** – End-to-end testing framework
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Meshery UI (Next.js)                        │
+│  ┌───────────────┐  ┌──────────────┐  ┌──────────────────────────┐ │
+│  │   Material UI │  │ Redux Toolkit│  │  Relay (GraphQL Client)  │ │
+│  │   Components  │  │  State Mgmt  │  │  + REST (Axios)          │ │
+│  └───────────────┘  └──────────────┘  └──────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Repository Structure
+
+The UI code is located in two directories:
+
+**`/ui`** – Main Meshery UI:
+
+```
+ui/
+├── components/           # React components
+├── pages/                # Next.js pages and routes
+├── store/                # Redux store and slices
+├── public/               # Static assets
+├── styles/               # Global styles
+├── utils/                # Utility functions
+├── .eslintrc.js         # ESLint configuration
+└── package.json          # Dependencies
+```
+
+**`/provider-ui`** – Provider-specific UI extensions:
+
+```
+provider-ui/
+├── components/
+├── pages/
+└── package.json
+```
+
+## Development Workflow
+
+### Installing Dependencies
+
+**Install all UI dependencies:**
+
+```bash
+make ui-setup
+```
+
+This installs dependencies for both `ui/` and `provider-ui/`.
+
+**Clean install (CI environment):**
+
+```bash
+make ui-setup-ci
+```
+
+### Running the Development Server
+
+**Start Meshery UI (port 3000):**
+
+```bash
+make ui
+```
+
+The UI will be available at `http://localhost:3000`.
+
+<Note>
+  The UI expects Meshery Server to be running at `http://localhost:9081`. Run `make server` in a separate terminal before starting the UI.
+</Note>
+
+**Start Provider UI:**
+
+```bash
+make ui-provider
+```
+
+### Building for Production
+
+**Build all UIs:**
+
+```bash
+make ui-build
+```
+
+This runs linting, builds the UI, and exports static files.
+
+**Build only Meshery UI:**
+
+```bash
+make ui-meshery-build
+```
+
+**Build only Provider UI:**
+
+```bash
+make ui-provider-build
+```
+
+### Linting
+
+**Lint Meshery UI:**
+
+```bash
+make ui-lint
+```
+
+**Lint Provider UI:**
+
+```bash
+make ui-provider-lint
+```
+
+**Fix linting issues automatically:**
+
+```bash
+cd ui
+npx eslint . --fix
+```
+
+## Code Style and Best Practices
+
+### ESLint Configuration
+
+Meshery UI uses ESLint with Prettier for code quality and formatting.
+
+**Configuration:** `ui/.eslintrc.js`
+
+```javascript
+module.exports = {
+  extends: [
+    'eslint:recommended',
+    'plugin:react/recommended',
+    'next',
+    'plugin:prettier/recommended',
+  ],
+  rules: {
+    'no-trailing-spaces': 'error',
+    'brace-style': ['error', '1tbs'],
+    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    'unused-imports/no-unused-imports': 'error',
+    'prettier/prettier': ['error', { endOfLine: 'lf' }],
+  },
+};
+```
+
+### Component Style
+
+**Use functional components with hooks:**
+
+```jsx
+import { useState, useEffect } from 'react';
+
+function WorkspaceFilter({ workspaces, onFilterChange }) {
+  const [selectedWorkspace, setSelectedWorkspace] = useState('');
+
+  useEffect(() => {
+    if (selectedWorkspace) {
+      onFilterChange(selectedWorkspace);
+    }
+  }, [selectedWorkspace, onFilterChange]);
+
+  return (
+    <select 
+      value={selectedWorkspace}
+      onChange={(e) => setSelectedWorkspace(e.target.value)}
+    >
+      <option value="">All Workspaces</option>
+      {workspaces.map((ws) => (
+        <option key={ws.id} value={ws.id}>
+          {ws.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+export default WorkspaceFilter;
+```
+
+**Avoid class components:**
+
+```jsx
+// ❌ Don't use class components
+class WorkspaceFilter extends React.Component {
+  // ...
+}
+
+// ✅ Use functional components
+function WorkspaceFilter() {
+  // ...
+}
+```
+
+### Styling with Sistent
+
+**Prefer Sistent design system components:**
+
+```jsx
+import { Button, TextField, Card } from '@sistent/sistent';
+
+function CreateWorkspaceForm() {
+  return (
+    <Card>
+      <TextField label="Workspace Name" variant="outlined" />
+      <TextField label="Description" multiline rows={4} />
+      <Button variant="contained" color="primary">
+        Create Workspace
+      </Button>
+    </Card>
+  );
+}
+```
+
+**Fall back to Material UI when Sistent components are unavailable:**
+
+```jsx
+import { Tooltip } from '@material-ui/core';
+import { Button } from '@sistent/sistent';
+
+function ActionButton() {
+  return (
+    <Tooltip title="Save changes">
+      <Button variant="contained">Save</Button>
+    </Tooltip>
+  );
+}
+```
+
+### State Management
+
+**Use Redux Toolkit for global state:**
+
+```jsx
+// store/workspaceSlice.js
+import { createSlice } from '@reduxjs/toolkit';
+
+const workspaceSlice = createSlice({
+  name: 'workspace',
+  initialState: {
+    selected: null,
+    list: [],
+  },
+  reducers: {
+    setWorkspace: (state, action) => {
+      state.selected = action.payload;
+    },
+    setWorkspaceList: (state, action) => {
+      state.list = action.payload;
+    },
+  },
+});
+
+export const { setWorkspace, setWorkspaceList } = workspaceSlice.actions;
+export default workspaceSlice.reducer;
+```
+
+**Use hooks to access Redux state:**
+
+```jsx
+import { useSelector, useDispatch } from 'react-redux';
+import { setWorkspace } from '../store/workspaceSlice';
+
+function WorkspaceSelector() {
+  const dispatch = useDispatch();
+  const workspaces = useSelector((state) => state.workspace.list);
+  const selected = useSelector((state) => state.workspace.selected);
+
+  const handleChange = (workspaceId) => {
+    dispatch(setWorkspace(workspaceId));
+  };
+
+  return (
+    <select value={selected?.id} onChange={(e) => handleChange(e.target.value)}>
+      {workspaces.map((ws) => (
+        <option key={ws.id} value={ws.id}>{ws.name}</option>
+      ))}
+    </select>
+  );
+}
+```
+
+**Use local state for component-specific data:**
+
+```jsx
+function FormDialog() {
+  const [open, setOpen] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>Open</Button>
+      <Dialog open={open} onClose={() => setOpen(false)}>
+        {/* Dialog content */}
+      </Dialog>
+    </>
+  );
+}
+```
+
+### API Integration
+
+**GraphQL with Relay:**
+
+```jsx
+import { useLazyLoadQuery } from 'react-relay';
+import graphql from 'babel-plugin-relay/macro';
+
+function WorkspaceList() {
+  const data = useLazyLoadQuery(
+    graphql`
+      query WorkspaceListQuery {
+        workspaces {
+          id
+          name
+          description
+          owner {
+            id
+            name
+          }
+        }
+      }
+    `,
+    {}
+  );
+
+  return (
+    <ul>
+      {data.workspaces.map((ws) => (
+        <li key={ws.id}>
+          <strong>{ws.name}</strong> - {ws.description}
+          <br />
+          Owner: {ws.owner.name}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+**GraphQL mutations:**
+
+```jsx
+import { useMutation } from 'react-relay';
+import graphql from 'babel-plugin-relay/macro';
+
+function CreateWorkspaceButton() {
+  const [commit, isInFlight] = useMutation(graphql`
+    mutation CreateWorkspaceMutation($name: String!, $description: String) {
+      createWorkspace(name: $name, description: $description) {
+        id
+        name
+      }
+    }
+  `);
+
+  const handleCreate = () => {
+    commit({
+      variables: { name: 'New Workspace', description: 'Description' },
+      onCompleted: (response) => {
+        console.log('Workspace created:', response.createWorkspace);
+      },
+    });
+  };
+
+  return (
+    <Button onClick={handleCreate} disabled={isInFlight}>
+      Create Workspace
+    </Button>
+  );
+}
+```
+
+**REST API with Axios:**
+
+```jsx
+import axios from 'axios';
+import { useState, useEffect } from 'react';
+
+function WorkspaceList() {
+  const [workspaces, setWorkspaces] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWorkspaces = async () => {
+      try {
+        const response = await axios.get('/api/workspaces');
+        setWorkspaces(response.data);
+      } catch (error) {
+        console.error('Failed to fetch workspaces:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchWorkspaces();
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+
+  return (
+    <ul>
+      {workspaces.map((ws) => (
+        <li key={ws.id}>{ws.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Routing with Next.js
+
+**File-based routing:**
+
+```
+pages/
+├── index.js              # Route: /
+├── workspaces/
+│   ├── index.js         # Route: /workspaces
+│   └── [id].js          # Route: /workspaces/:id
+└── designs.js            # Route: /designs
+```
+
+**Link between pages:**
+
+```jsx
+import Link from 'next/link';
+
+function Navigation() {
+  return (
+    <nav>
+      <Link href="/">Home</Link>
+      <Link href="/workspaces">Workspaces</Link>
+      <Link href="/designs">Designs</Link>
+    </nav>
+  );
+}
+```
+
+**Programmatic navigation:**
+
+```jsx
+import { useRouter } from 'next/router';
+
+function WorkspaceCard({ workspace }) {
+  const router = useRouter();
+
+  const handleClick = () => {
+    router.push(`/workspaces/${workspace.id}`);
+  };
+
+  return (
+    <Card onClick={handleClick}>
+      <h3>{workspace.name}</h3>
+    </Card>
+  );
+}
+```
+
+**Access route parameters:**
+
+```jsx
+import { useRouter } from 'next/router';
+
+function WorkspaceDetail() {
+  const router = useRouter();
+  const { id } = router.query;
+
+  return <div>Workspace ID: {id}</div>;
+}
+```
+
+## Testing
+
+### End-to-End Tests with Playwright
+
+Meshery UI uses Playwright for end-to-end testing.
+
+**Install Playwright:**
+
+```bash
+make test-setup-ui
+```
+
+This installs Playwright browsers with system dependencies.
+
+**Run E2E tests:**
+
+```bash
+make ui-integration-tests
+```
+
+Or directly with npm:
+
+```bash
+cd ui
+npm run test:e2e
+```
+
+**Run tests in CI mode (non-interactive):**
+
+```bash
+make test-e2e-ci
+```
+
+**Write a Playwright test:**
+
+```javascript
+// ui/tests/workspaces.spec.js
+import { test, expect } from '@playwright/test';
+
+test('create workspace', async ({ page }) => {
+  await page.goto('http://localhost:3000/workspaces');
+  
+  await page.click('button:has-text("Create Workspace")');
+  await page.fill('input[name="name"]', 'Test Workspace');
+  await page.fill('textarea[name="description"]', 'Test Description');
+  await page.click('button:has-text("Save")');
+  
+  await expect(page.locator('text=Test Workspace')).toBeVisible();
+});
+```
+
+### Unit Tests
+
+<Note>
+  Unit testing infrastructure for JavaScript is still being expanded. Playwright E2E tests are currently the primary testing method.
+</Note>
+
+## Common Tasks
+
+### Adding a New Page
+
+1. **Create page file in `ui/pages/`:**
+
+```jsx
+// ui/pages/settings.js
+import { useState } from 'react';
+import { Button, TextField } from '@sistent/sistent';
+
+function SettingsPage() {
+  const [apiKey, setApiKey] = useState('');
+
+  return (
+    <div>
+      <h1>Settings</h1>
+      <TextField 
+        label="API Key" 
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+      />
+      <Button variant="contained">Save</Button>
+    </div>
+  );
+}
+
+export default SettingsPage;
+```
+
+2. **Add navigation link:**
+
+```jsx
+<Link href="/settings">Settings</Link>
+```
+
+### Adding a Redux Slice
+
+1. **Create slice in `ui/store/`:**
+
+```jsx
+// ui/store/settingsSlice.js
+import { createSlice } from '@reduxjs/toolkit';
+
+const settingsSlice = createSlice({
+  name: 'settings',
+  initialState: {
+    apiKey: '',
+    theme: 'light',
+  },
+  reducers: {
+    setApiKey: (state, action) => {
+      state.apiKey = action.payload;
+    },
+    setTheme: (state, action) => {
+      state.theme = action.payload;
+    },
+  },
+});
+
+export const { setApiKey, setTheme } = settingsSlice.actions;
+export default settingsSlice.reducer;
+```
+
+2. **Add to store configuration:**
+
+```jsx
+import { configureStore } from '@reduxjs/toolkit';
+import settingsReducer from './settingsSlice';
+
+const store = configureStore({
+  reducer: {
+    settings: settingsReducer,
+  },
+});
+```
+
+### Adding a Reusable Component
+
+1. **Create component in `ui/components/`:**
+
+```jsx
+// ui/components/WorkspaceCard.js
+import { Card, CardContent, Typography } from '@sistent/sistent';
+
+function WorkspaceCard({ workspace, onClick }) {
+  return (
+    <Card onClick={onClick} style={{ cursor: 'pointer' }}>
+      <CardContent>
+        <Typography variant="h5">{workspace.name}</Typography>
+        <Typography variant="body2">{workspace.description}</Typography>
+        <Typography variant="caption">Owner: {workspace.owner}</Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default WorkspaceCard;
+```
+
+2. **Use in pages:**
+
+```jsx
+import WorkspaceCard from '../components/WorkspaceCard';
+
+function WorkspacesPage({ workspaces }) {
+  const handleClick = (workspace) => {
+    console.log('Clicked:', workspace);
+  };
+
+  return (
+    <div>
+      {workspaces.map((ws) => (
+        <WorkspaceCard 
+          key={ws.id}
+          workspace={ws}
+          onClick={() => handleClick(ws)}
+        />
+      ))}
+    </div>
+  );
+}
+```
+
+## Debugging
+
+### Browser DevTools
+
+Use React DevTools and Redux DevTools extensions:
+
+- **React DevTools** – Inspect component tree and props
+- **Redux DevTools** – Inspect state and action history
+
+### Console Logging
+
+```jsx
+useEffect(() => {
+  console.log('Workspaces updated:', workspaces);
+}, [workspaces]);
+```
+
+### Network Inspection
+
+Use browser DevTools Network tab to inspect API requests:
+
+1. Open DevTools (F12)
+2. Go to Network tab
+3. Filter by XHR to see API calls
+
+## Performance Optimization
+
+### Code Splitting
+
+Next.js automatically code-splits pages. For components:
+
+```jsx
+import dynamic from 'next/dynamic';
+
+const HeavyComponent = dynamic(() => import('../components/HeavyComponent'), {
+  loading: () => <div>Loading...</div>,
+});
+```
+
+### Memoization
+
+```jsx
+import { useMemo } from 'react';
+
+function WorkspaceList({ workspaces, filter }) {
+  const filteredWorkspaces = useMemo(() => {
+    return workspaces.filter((ws) => ws.name.includes(filter));
+  }, [workspaces, filter]);
+
+  return (
+    <ul>
+      {filteredWorkspaces.map((ws) => (
+        <li key={ws.id}>{ws.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="vial" href="/contributing/testing">
+    Learn how to test UI changes
+  </Card>
+  <Card title="Code Style" icon="code" href="/contributing/code-style">
+    Review JavaScript code style
+  </Card>
+  <Card title="Server Development" icon="server" href="/contributing/server">
+    Contribute to the backend
+  </Card>
+  <Card title="CLI Development" icon="terminal" href="/contributing/cli">
+    Contribute to mesheryctl
+  </Card>
+</CardGroup>

@@ -1,0 +1,312 @@
+---
+title: Infrastructure Management
+description: Learn how to deploy and manage Kubernetes infrastructure with Meshery
+---
+
+Meshery provides comprehensive infrastructure lifecycle management for Kubernetes clusters, cloud services, and 300+ cloud native integrations. This guide covers deploying, configuring, and managing your infrastructure using Meshery.
+
+## Overview
+
+Meshery manages the configuration, deployment, and operation of your cloud services and Kubernetes clusters. Whether you're working with a single cluster or managing multi-cluster, multi-cloud deployments, Meshery provides the tools you need.
+
+## Starting Meshery
+
+Before managing infrastructure, ensure Meshery is running:
+
+<Steps>
+  <Step title="Install mesheryctl">
+    Download and install the Meshery CLI tool:
+    
+    ```bash
+    curl -L https://meshery.io/install | bash -
+    ```
+  </Step>
+  
+  <Step title="Start Meshery">
+    Launch Meshery and its components:
+    
+    ```bash
+    mesheryctl system start
+    ```
+    
+    <Note>
+      Add `--skip-browser` flag if you don't want the UI to open automatically.
+    </Note>
+  </Step>
+  
+  <Step title="Verify Status">
+    Check that all components are running:
+    
+    ```bash
+    mesheryctl system status
+    ```
+    
+    This shows the status of Meshery Server, adapters, and operator components.
+  </Step>
+</Steps>
+
+## Connecting to Kubernetes Clusters
+
+Meshery discovers and connects to Kubernetes clusters through connections. Connections represent the endpoints and credentials for your infrastructure.
+
+<Steps>
+  <Step title="Automatic Discovery">
+    Meshery automatically discovers clusters from your kubeconfig:
+    
+    ```bash
+    mesheryctl system context create <context-name>
+    ```
+    
+    This creates a connection from your current kubectl context.
+  </Step>
+  
+  <Step title="View Available Connections">
+    List all discovered and registered connections:
+    
+    ```bash
+    mesheryctl connections list
+    ```
+    
+    Connection statuses include:
+    - **DISCOVERED** - Found but not yet registered
+    - **REGISTERED** - Registered and ready to connect
+    - **CONNECTED** - Active connection established
+    - **DISCONNECTED** - Previously connected, now offline
+  </Step>
+  
+  <Step title="Register a Connection">
+    Register a discovered connection to make it available:
+    
+    ```bash
+    mesheryctl connections view <connection-id>
+    ```
+    
+    You can also create connections manually through the UI by navigating to **Settings** → **Connections** → **Create Connection**.
+  </Step>
+</Steps>
+
+<Note>
+Connections with status `MAINTENANCE` or `IGNORED` are not actively managed by Meshery. Update the status to `CONNECTED` to enable management.
+</Note>
+
+## Deploying Infrastructure Components
+
+Deploy Kubernetes resources and cloud native components using Meshery's design-based approach:
+
+<Steps>
+  <Step title="Create or Import Design">
+    You can create designs through:
+    - **Visual Canvas** - Drag and drop components in the UI
+    - **Import** - Import existing Kubernetes manifests, Helm charts, or Docker Compose files
+    - **Catalog** - Use pre-built designs from the catalog
+    
+    From the CLI:
+    ```bash
+    mesheryctl design import -f ./my-app.yaml
+    ```
+  </Step>
+  
+  <Step title="Configure Components">
+    In the design canvas:
+    1. Select components from the 300+ available integrations
+    2. Configure properties through the properties panel
+    3. Define relationships between components (e.g., namespace hierarchy, network policies)
+  </Step>
+  
+  <Step title="Deploy Design">
+    Apply the design to your cluster:
+    
+    ```bash
+    mesheryctl design apply -f my-design.yaml
+    ```
+    
+    Or deploy from the UI:
+    1. Open the design in Meshery UI
+    2. Click **Actions** → **Deploy**
+    3. Select target environment(s)
+    4. Confirm deployment
+  </Step>
+  
+  <Step title="Monitor Deployment">
+    Track deployment progress in real-time:
+    - View component status in the Visualizer
+    - Check events in the Notification Center
+    - Review logs for troubleshooting
+  </Step>
+</Steps>
+
+## Managing Meshery Operator
+
+The Meshery Operator manages lifecycle of Meshery components within your Kubernetes cluster:
+
+```bash
+# Deploy operator to cluster
+mesheryctl system context create <context-name>
+
+# Check operator status
+kubectl get pods -n meshery
+```
+
+The operator deploys:
+- **MeshSync** - Discovers and synchronizes cluster state
+- **Meshery Broker** - NATS-based event streaming
+
+<Warning>
+Do not manually modify Meshery Operator resources. Use `mesheryctl` or the UI to manage the operator lifecycle.
+</Warning>
+
+## Working with Environments
+
+Environments group your infrastructure connections and provide logical separation:
+
+<Steps>
+  <Step title="Create Environment">
+    Environments represent logical groupings (dev, staging, production):
+    
+    1. Navigate to **Environments** in Meshery UI
+    2. Click **Create Environment**
+    3. Provide name and description
+    4. Assign connections to the environment
+  </Step>
+  
+  <Step title="Associate with Workspaces">
+    Link environments to workspaces for team collaboration:
+    
+    1. Open workspace settings
+    2. Navigate to **Environments** tab
+    3. Add or remove environment associations
+  </Step>
+  
+  <Step title="Deploy to Environments">
+    When deploying designs, select target environment:
+    
+    ```bash
+    mesheryctl design apply -f design.yaml --environment production
+    ```
+  </Step>
+</Steps>
+
+## Monitoring Infrastructure State
+
+Meshery continuously monitors your infrastructure through MeshSync:
+
+### Real-time Synchronization
+
+MeshSync discovers resources in your cluster and publishes changes:
+
+```bash
+# View discovered resources
+kubectl get meshsync -n meshery
+```
+
+### Event Streaming
+
+Meshery uses NATS for event-driven updates:
+- Component state changes
+- Health status updates
+- Configuration drift detection
+
+View events in the UI **Notification Center** or subscribe to topics programmatically.
+
+## Infrastructure as Code
+
+Meshery supports GitOps workflows for infrastructure management:
+
+<Steps>
+  <Step title="Export Designs">
+    Save current infrastructure state as code:
+    
+    ```bash
+    mesheryctl design export my-design > infrastructure.yaml
+    ```
+  </Step>
+  
+  <Step title="Version Control">
+    Store designs in Git for version control:
+    
+    ```bash
+    git add infrastructure.yaml
+    git commit -m "Update infrastructure configuration"
+    git push
+    ```
+  </Step>
+  
+  <Step title="Automated Deployment">
+    Deploy from CI/CD pipelines:
+    
+    ```yaml
+    # GitHub Actions example
+    - name: Deploy to Kubernetes
+      run: |
+        mesheryctl design apply -f infrastructure.yaml
+    ```
+  </Step>
+</Steps>
+
+## Multi-Cloud Management
+
+Meshery supports infrastructure across multiple cloud providers:
+
+- **AWS** - EKS, EC2, ECS
+- **Azure** - AKS, Container Instances
+- **GCP** - GKE, Cloud Run
+- **On-premises** - Self-managed Kubernetes
+
+Each cloud provider integration provides specific components (load balancers, storage classes, managed services).
+
+## Advanced Configuration
+
+### Custom Resource Definitions
+
+Meshery automatically discovers CRDs in your cluster and makes them available as components.
+
+### Helm Chart Deployment
+
+Import and deploy Helm charts:
+
+```bash
+mesheryctl design import --design-type "Helm Chart" -f ./chart.tgz
+```
+
+### Docker Compose Support
+
+Convert Docker Compose to Kubernetes:
+
+```bash
+mesheryctl design import --design-type "Docker Compose" -f docker-compose.yml
+```
+
+## Troubleshooting
+
+### Connection Issues
+
+If connections fail to establish:
+
+1. Verify kubeconfig is valid: `kubectl cluster-info`
+2. Check network connectivity to cluster API server
+3. Ensure proper RBAC permissions
+4. Review connection status: `mesheryctl connections list`
+
+### Operator Not Starting
+
+```bash
+# Check operator logs
+kubectl logs -n meshery -l app=meshery-operator
+
+# Restart operator
+mesheryctl system restart
+```
+
+### Component Deployment Failures
+
+1. Check events in Notification Center
+2. Review component validation errors
+3. Verify target namespace exists
+4. Check resource quotas and limits
+
+## Next Steps
+
+- Learn about [Design Patterns](/guides/design-patterns) for reusable configurations
+- Set up [Multi-Cluster Management](/guides/multi-cluster-setup)
+- Configure [OPA Policies](/guides/policy-engine) for governance
+- Explore [Integrations](/guides/integrations) for your tech stack

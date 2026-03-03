@@ -1,0 +1,495 @@
+---
+title: GitOps
+description: Visual and collaborative GitOps workflows with Meshery, freeing you from the chains of YAML
+---
+
+Meshery enables visual and collaborative GitOps, transforming traditional YAML-based GitOps workflows into visual, diagram-based infrastructure management. Combine the benefits of version control, audit trails, and declarative infrastructure with the power of visual design and collaboration.
+
+## Overview
+
+Meshery's GitOps capabilities provide:
+
+- **Visual Infrastructure as Code**: Design infrastructure visually, store as code
+- **GitHub Integration**: Connect repositories for automated snapshots
+- **Pull Request Snapshots**: Visual previews of infrastructure changes in PRs
+- **Version Control**: Full Git-based version history for all designs
+- **GitOps Workflows**: Deploy from Git repositories to Kubernetes clusters
+- **Change Visualization**: See infrastructure changes before merging
+
+<CardGroup cols={2}>
+  <Card title="Freedom from YAML" icon="file-code">
+    Design infrastructure visually while maintaining GitOps best practices
+  </Card>
+  <Card title="Visual Diffs" icon="code-compare">
+    See visual representations of infrastructure changes in pull requests
+  </Card>
+  <Card title="Automated Snapshots" icon="camera">
+    GitHub Action automatically generates snapshots for every PR
+  </Card>
+  <Card title="Audit Trail" icon="timeline">
+    Complete version history of all infrastructure changes
+  </Card>
+</CardGroup>
+
+## Visual GitOps Workflow
+
+Meshery transforms the traditional GitOps workflow:
+
+### Traditional GitOps
+<Steps>
+  <Step title="Edit YAML files">
+    Manually edit Kubernetes YAML manifests in a text editor
+  </Step>
+  <Step title="Commit to Git">
+    Commit YAML changes to version control
+  </Step>
+  <Step title="Review text diff">
+    Review YAML diffs in pull request - difficult to understand impact
+  </Step>
+  <Step title="Merge and deploy">
+    Merge PR and GitOps operator applies changes
+  </Step>
+</Steps>
+
+### Meshery GitOps
+<Steps>
+  <Step title="Design visually">
+    Use Kanvas to design infrastructure changes visually
+  </Step>
+  <Step title="Export to Git">
+    Export design to YAML and commit to repository
+  </Step>
+  <Step title="Review visual snapshot">
+    Review visual snapshot of changes in pull request
+  </Step>
+  <Step title="Merge and deploy">
+    Merge PR and deploy through Meshery or GitOps operator
+  </Step>
+</Steps>
+
+<Note>
+Meshery doesn't replace your GitOps operator - it enhances the workflow with visual design and collaboration.
+</Note>
+
+## GitHub Integration
+
+### Connecting GitHub Repositories
+
+Connect your GitHub repositories to enable snapshot functionality:
+
+<Steps>
+  <Step title="Navigate to Workspace Settings">
+    Go to your Workspace settings in Meshery
+  </Step>
+  <Step title="GitHub Connection">
+    Click "Connect GitHub" and authorize the Meshery GitHub App
+  </Step>
+  <Step title="Select Repositories">
+    Choose which repositories to connect for snapshots
+  </Step>
+  <Step title="Configure Webhooks">
+    Meshery automatically configures webhooks for PR events
+  </Step>
+</Steps>
+
+### Kanvas Snapshot GitHub Action
+
+The Kanvas Snapshot GitHub Action generates visual infrastructure snapshots:
+
+**Installation:**
+
+```yaml
+name: Kanvas Snapshot
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'k8s/**'
+      - 'helm/**'
+      - 'deploy/**'
+
+jobs:
+  kanvas-snapshot:
+    name: Generate Infrastructure Snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Generate Kanvas Snapshot
+        uses: layer5io/kanvas-snapshot@v0.7.0
+        with:
+          # Meshery instance URL
+          meshery-url: ${{ secrets.MESHERY_URL }}
+          
+          # Meshery authentication token
+          meshery-token: ${{ secrets.MESHERY_TOKEN }}
+          
+          # Provider token (e.g., Meshery Cloud)
+          provider-token: ${{ secrets.PROVIDER_TOKEN }}
+          
+          # Type of application files
+          application-type: 'Kubernetes Manifest'
+          
+          # Path to manifest files
+          file-path: './k8s'
+          
+      - name: Comment PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Kanvas Snapshot Generated\n\nView your infrastructure snapshot in Meshery.'
+            })
+```
+
+**Configuration Options:**
+
+| Parameter | Description | Required | Default |
+|-----------|-------------|----------|----------|
+| `meshery-url` | URL of Meshery instance | Yes | - |
+| `meshery-token` | Meshery authentication token | Yes | - |
+| `provider-token` | Remote provider token | Yes | - |
+| `application-type` | Type of files (Kubernetes Manifest, Helm Chart, Docker Compose) | No | Kubernetes Manifest |
+| `file-path` | Path to infrastructure files | No | . |
+| `design-name` | Custom name for the snapshot | No | Auto-generated |
+
+## Pull Request Snapshots
+
+### Snapshot Workflow
+
+When a pull request is created or updated:
+
+<Steps>
+  <Step title="Trigger Action">
+    GitHub Action is triggered by PR event (open, update, sync)
+  </Step>
+  <Step title="Parse Files">
+    Action parses Kubernetes YAML, Helm charts, or Docker Compose files
+  </Step>
+  <Step title="Generate Design">
+    Meshery converts files to visual design representation
+  </Step>
+  <Step title="Create Snapshot">
+    Visual snapshot image is generated showing infrastructure
+  </Step>
+  <Step title="Post Comment">
+    Snapshot is posted as PR comment with link to Meshery
+  </Step>
+</Steps>
+
+### Snapshot Features
+
+Snapshots provide visual insight into infrastructure changes:
+
+- **Component Visualization**: All Kubernetes resources shown as visual components
+- **Relationship Mapping**: Dependencies and relationships between resources
+- **Change Highlighting**: Modified resources highlighted in the snapshot
+- **Resource Counts**: Summary of resources added, modified, or removed
+- **Interactive View**: Click snapshot to open full interactive view in Meshery
+
+### Reading Snapshots
+
+Interpret snapshot information:
+
+<CardGroup cols={2}>
+  <Card title="Green Components" icon="circle-check">
+    Resources being added in this PR
+  </Card>
+  <Card title="Yellow Components" icon="triangle-exclamation">
+    Resources being modified in this PR
+  </Card>
+  <Card title="Red Components" icon="circle-xmark">
+    Resources being removed in this PR
+  </Card>
+  <Card title="Gray Components" icon="circle">
+    Existing resources not changed
+  </Card>
+</CardGroup>
+
+## Design Versioning
+
+### Git-based Versioning
+
+All Meshery designs can be version controlled:
+
+**Exporting Designs:**
+
+```bash
+# Export design to YAML
+mesheryctl pattern export <design-id> > infrastructure.yaml
+
+# Export to Helm chart
+mesheryctl pattern export <design-id> --format helm -o ./chart
+
+# Export to Docker Compose
+mesheryctl pattern export <design-id> --format compose > docker-compose.yml
+```
+
+**Committing to Git:**
+
+```bash
+git add infrastructure.yaml
+git commit -m "feat: add Redis cache to application stack"
+git push origin feature/redis-cache
+```
+
+### Design History
+
+Track design evolution over time:
+
+- **Version Tags**: Tag designs with semantic versions
+- **Change Log**: Maintain changelog of design modifications
+- **Branching**: Use Git branches for design variants
+- **Rollback**: Easily revert to previous design versions
+
+## Deployment from Git
+
+### GitOps Deployment Patterns
+
+**Pattern 1: Meshery as Deployment Tool**
+
+```bash
+# Deploy design from Git repository
+mesheryctl pattern deploy \
+  --file https://github.com/org/repo/blob/main/infrastructure.yaml \
+  --context production
+```
+
+**Pattern 2: ArgoCD Integration**
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: my-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/org/repo
+    targetRevision: main
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: production
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+**Pattern 3: Flux Integration**
+
+```yaml
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/org/repo
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: infrastructure
+  namespace: flux-system
+spec:
+  interval: 10m
+  sourceRef:
+    kind: GitRepository
+    name: infrastructure
+  path: "./k8s"
+  prune: true
+```
+
+## Collaboration in GitOps
+
+### Design Review Process
+
+Collaborative design review workflow:
+
+<Steps>
+  <Step title="Create Design Branch">
+    Create a new branch for infrastructure changes
+  </Step>
+  <Step title="Design in Kanvas">
+    Make changes using Kanvas visual designer
+  </Step>
+  <Step title="Export and Commit">
+    Export design to YAML and commit to branch
+  </Step>
+  <Step title="Open Pull Request">
+    Create PR with description of changes
+  </Step>
+  <Step title="Team Review">
+    Team reviews visual snapshot and YAML changes
+  </Step>
+  <Step title="Iterate">
+    Make adjustments based on feedback
+  </Step>
+  <Step title="Approve and Merge">
+    Approve PR and merge to trigger deployment
+  </Step>
+</Steps>
+
+### Comments and Annotations
+
+Enhance collaboration with inline comments:
+
+- **Design Comments**: Add comments directly on Kanvas designs
+- **PR Comments**: Discuss changes in GitHub PR comments
+- **Documentation**: Include README with design rationale
+- **Change Descriptions**: Write clear commit messages and PR descriptions
+
+## Advanced GitOps Workflows
+
+### Multi-environment Promotion
+
+Promote changes through environments:
+
+```bash
+# Development environment
+git checkout develop
+mesheryctl pattern deploy -f design.yaml --context dev-cluster
+
+# Staging environment (after dev testing)
+git checkout staging
+git merge develop
+mesheryctl pattern deploy -f design.yaml --context staging-cluster
+
+# Production environment (after staging approval)
+git checkout main
+git merge staging
+mesheryctl pattern deploy -f design.yaml --context prod-cluster
+```
+
+### Automated Testing
+
+Integrate testing in GitOps pipeline:
+
+```yaml
+# .github/workflows/validate.yml
+name: Validate Infrastructure
+on:
+  pull_request:
+    paths:
+      - 'k8s/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Validate Design
+        run: |
+          mesheryctl pattern validate -f k8s/design.yaml
+          
+      - name: Dry Run
+        run: |
+          mesheryctl pattern deploy -f k8s/design.yaml \
+            --context test-cluster --dry-run
+            
+      - name: Policy Check
+        run: |
+          mesheryctl pattern check -f k8s/design.yaml \
+            --policy ./policies/security.rego
+```
+
+### Drift Detection
+
+Detect when deployed infrastructure drifts from Git:
+
+```bash
+# Compare deployed state with Git source
+mesheryctl pattern diff \
+  --deployed <design-id> \
+  --source https://github.com/org/repo/blob/main/design.yaml
+
+# Auto-remediate drift
+mesheryctl pattern deploy -f design.yaml --force
+```
+
+## Snapshot Extensions
+
+### Helm Kanvas Snapshot Plugin
+
+Generate snapshots from Helm charts:
+
+```bash
+# Install plugin
+helm plugin install https://github.com/meshery/helm-kanvas-snapshot
+
+# Generate snapshot of Helm chart
+helm kanvas-snapshot mychart ./chart-directory
+
+# Snapshot installed release
+helm kanvas-snapshot release myrelease --namespace production
+
+# Output snapshot to file
+helm kanvas-snapshot mychart ./chart --output snapshot.png
+```
+
+### kubectl Kanvas Snapshot Plugin
+
+Generate snapshots from kubectl manifests:
+
+```bash
+# Install via krew
+kubectl krew install kanvas-snapshot
+
+# Snapshot from file
+kubectl kanvas-snapshot -f deployment.yaml
+
+# Snapshot from directory
+kubectl kanvas-snapshot -f ./k8s/
+
+# Snapshot running resources
+kubectl kanvas-snapshot --namespace production --all
+
+# Snapshot with Kustomize
+kubectl kanvas-snapshot -k ./overlays/production
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Design Before YAML">
+    Start with visual design in Kanvas, then export to YAML for Git. This ensures consistent, well-structured infrastructure.
+  </Accordion>
+  <Accordion title="Use Meaningful Branch Names">
+    Name branches descriptively: `feature/add-redis`, `fix/ingress-timeout`, `refactor/optimize-resources`
+  </Accordion>
+  <Accordion title="Write Clear Commit Messages">
+    Follow conventional commits: `feat:`, `fix:`, `refactor:`, `docs:` prefixes help track changes.
+  </Accordion>
+  <Accordion title="Enable Snapshots for All Repos">
+    Add Kanvas Snapshot action to all infrastructure repositories for consistent visual feedback.
+  </Accordion>
+  <Accordion title="Protect Main Branch">
+    Require PR reviews and passing checks before merging to main/production branches.
+  </Accordion>
+  <Accordion title="Tag Releases">
+    Tag important versions: `v1.0.0`, `production-2024-03-01` for easy rollback reference.
+  </Accordion>
+  <Accordion title="Document Breaking Changes">
+    Clearly document any breaking changes in PR descriptions and commit messages.
+  </Accordion>
+</AccordionGroup>
+
+## Related Features
+
+- [Kanvas](/features/kanvas) - Visual and collaborative designer
+- [Visual Designer](/features/visual-designer) - Core design capabilities
+- [Design Catalog](/features/catalog) - Reusable design patterns
+- [Multi-cluster Management](/features/multi-cluster-management) - Deploy across clusters

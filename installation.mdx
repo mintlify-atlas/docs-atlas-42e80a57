@@ -1,0 +1,681 @@
+---
+title: Installation
+description: Comprehensive installation guide for all supported platforms
+icon: download
+---
+
+# Meshery Installation Guide
+
+Meshery can be deployed on various platforms including Docker, Kubernetes, and multiple cloud providers. This guide provides detailed installation instructions for each supported platform.
+
+## Prerequisites
+
+<CardGroup cols={2}>
+  <Card title="System Requirements" icon="computer">
+    - 2+ CPU cores
+    - 4GB+ RAM
+    - 10GB+ disk space
+  </Card>
+  <Card title="Required Software" icon="wrench">
+    - Docker 20.10+ or Kubernetes 1.21+
+    - kubectl (for Kubernetes deployments)
+    - Helm 3.0+ (optional)
+  </Card>
+</CardGroup>
+
+<Note>
+Meshery runs as a set of containers inside or outside of your Kubernetes clusters. Choose the installation method that best fits your environment.
+</Note>
+
+## Quick Installation
+
+### Using mesheryctl (Recommended)
+
+The fastest way to install Meshery is using `mesheryctl`, the official CLI:
+
+<Steps>
+  <Step title="Install mesheryctl">
+    <Tabs>
+      <Tab title="macOS / Linux">
+        ```bash
+        curl -L https://meshery.io/install | bash -
+        ```
+      </Tab>
+      <Tab title="Windows (WSL2)">
+        ```bash
+        curl -L https://meshery.io/install | bash -
+        ```
+      </Tab>
+      <Tab title="Homebrew">
+        ```bash
+        brew install mesheryctl
+        ```
+      </Tab>
+      <Tab title="Scoop (Windows)">
+        ```powershell
+        scoop bucket add mesheryctl https://github.com/meshery/scoop-bucket.git
+        scoop install mesheryctl
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Start Meshery">
+    ```bash
+    mesheryctl system start
+    ```
+
+    By default, Meshery deploys using Docker. Access the UI at:
+    ```
+    http://localhost:9081
+    ```
+  </Step>
+</Steps>
+
+## Platform-Specific Installation
+
+### Docker
+
+<Tabs>
+  <Tab title="mesheryctl">
+    Deploy Meshery on Docker using `mesheryctl`:
+
+    ```bash
+    mesheryctl system start --platform docker
+    ```
+
+    This will:
+    - Download the latest Meshery images
+    - Start Meshery Server on port 9081
+    - Configure networking and volumes
+    - Mount your kubeconfig for cluster access
+
+    **Configuration:**
+    - Meshery Server: `http://localhost:9081`
+    - Config directory: `~/.meshery`
+    - Kubeconfig: `~/.kube/config` (mounted automatically)
+  </Tab>
+
+  <Tab title="Docker Compose">
+    Install using Docker Compose directly:
+
+    <Steps>
+      <Step title="Download docker-compose.yaml">
+        ```bash
+        curl -L -o docker-compose.yaml \
+          https://raw.githubusercontent.com/meshery/meshery/master/install/docker/docker-compose.yaml
+        ```
+      </Step>
+
+      <Step title="Start Meshery">
+        ```bash
+        docker-compose up -d
+        ```
+      </Step>
+
+      <Step title="Verify deployment">
+        ```bash
+        docker-compose ps
+        ```
+      </Step>
+    </Steps>
+
+    **docker-compose.yaml configuration:**
+    ```yaml
+    services:
+      meshery:
+        image: meshery/meshery:stable-latest
+        environment:
+          - "PROVIDER_BASE_URLS=https://cloud.layer5.io"
+          - "EVENT=mesheryLocal"
+          - "KUBECONFIG_FOLDER=/home/appuser/.kube"
+          - "PORT=9081"
+        volumes:
+          - $HOME/.kube:/home/appuser/.kube:ro
+          - /var/run/docker.sock:/var/run/docker.sock
+        ports:
+          - "9081:9081"
+    ```
+  </Tab>
+
+  <Tab title="Docker Extension">
+    Install Meshery as a Docker Desktop extension:
+
+    <Steps>
+      <Step title="Install from Docker Desktop">
+        1. Open Docker Desktop
+        2. Navigate to **Extensions** → **Marketplace**
+        3. Search for "Meshery"
+        4. Click **Install**
+      </Step>
+
+      <Step title="Alternative: CLI Installation">
+        ```bash
+        docker extension install meshery/docker-extension-meshery
+        ```
+      </Step>
+    </Steps>
+
+    <Info>
+    The Docker Extension provides a seamless experience with Meshery embedded directly in Docker Desktop.
+    </Info>
+  </Tab>
+</Tabs>
+
+### Kubernetes
+
+<Tabs>
+  <Tab title="mesheryctl">
+    Deploy Meshery on any Kubernetes cluster:
+
+    ```bash
+    mesheryctl system start --platform kubernetes
+    ```
+
+    Meshery will be deployed in the `meshery` namespace with all required components.
+
+    **Access Meshery:**
+    ```bash
+    kubectl port-forward svc/meshery -n meshery 9081:9081
+    ```
+
+    Then visit `http://localhost:9081`
+  </Tab>
+
+  <Tab title="Helm">
+    Install using Helm charts:
+
+    <Steps>
+      <Step title="Add Meshery Helm repository">
+        ```bash
+        helm repo add meshery https://meshery.io/charts/
+        helm repo update
+        ```
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        helm install meshery meshery/meshery \
+          --namespace meshery \
+          --create-namespace
+        ```
+      </Step>
+
+      <Step title="Verify installation">
+        ```bash
+        kubectl get pods -n meshery
+        ```
+
+        Expected output:
+        ```
+        NAME                                READY   STATUS    RESTARTS   AGE
+        meshery-7d9f8b8c9d-xxxxx           1/1     Running   0          2m
+        meshery-broker-0                   1/1     Running   0          2m
+        meshery-meshsync-xxxxx-xxxxx       1/1     Running   0          2m
+        meshery-operator-xxxxx-xxxxx       1/1     Running   0          2m
+        ```
+      </Step>
+    </Steps>
+
+    **Customize installation:**
+    ```bash
+    # Install with specific adapters enabled
+    helm install meshery meshery/meshery \
+      --set meshery-istio.enabled=true \
+      --set meshery-linkerd.enabled=true \
+      --namespace meshery \
+      --create-namespace
+    ```
+
+    **Upgrade Meshery:**
+    ```bash
+    helm upgrade meshery meshery/meshery \
+      --namespace meshery \
+      -f values-upgrade.yaml \
+      --wait --timeout 10m
+    ```
+  </Tab>
+
+  <Tab title="Kubectl Manifests">
+    Install using raw Kubernetes manifests:
+
+    ```bash
+    kubectl apply -f https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-deployment.yaml
+    kubectl apply -f https://raw.githubusercontent.com/meshery/meshery/master/install/deployment_yamls/k8s/meshery-service.yaml
+    ```
+
+    <Warning>
+    This method requires manual configuration of RBAC, service accounts, and persistent volumes.
+    </Warning>
+  </Tab>
+</Tabs>
+
+### Cloud Platforms
+
+<Tabs>
+  <Tab title="Amazon EKS">
+    Deploy Meshery on Amazon EKS:
+
+    <Steps>
+      <Step title="Configure kubectl for EKS">
+        ```bash
+        aws eks update-kubeconfig \
+          --region <region> \
+          --name <cluster-name>
+        ```
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        mesheryctl system start --platform kubernetes
+        ```
+
+        Or using Helm:
+        ```bash
+        helm install meshery meshery/meshery \
+          --namespace meshery \
+          --create-namespace
+        ```
+      </Step>
+
+      <Step title="Expose via LoadBalancer (optional)">
+        ```bash
+        kubectl patch svc meshery -n meshery \
+          -p '{"spec": {"type": "LoadBalancer"}}'
+        ```
+
+        Get the external IP:
+        ```bash
+        kubectl get svc meshery -n meshery
+        ```
+      </Step>
+    </Steps>
+
+    <Info>
+    For production deployments, consider using AWS ALB Ingress Controller for HTTPS and domain routing.
+    </Info>
+  </Tab>
+
+  <Tab title="Google GKE">
+    Deploy Meshery on Google Kubernetes Engine:
+
+    <Steps>
+      <Step title="Configure kubectl for GKE">
+        ```bash
+        gcloud container clusters get-credentials <cluster-name> \
+          --zone <zone> \
+          --project <project-id>
+        ```
+      </Step>
+
+      <Step title="Grant cluster-admin permissions">
+        ```bash
+        kubectl create clusterrolebinding cluster-admin-binding \
+          --clusterrole=cluster-admin \
+          --user=$(gcloud config get-value core/account)
+        ```
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        helm install meshery meshery/meshery \
+          --namespace meshery \
+          --create-namespace
+        ```
+      </Step>
+
+      <Step title="Expose via LoadBalancer (optional)">
+        ```bash
+        kubectl patch svc meshery -n meshery \
+          -p '{"spec": {"type": "LoadBalancer"}}'
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Azure AKS">
+    Deploy Meshery on Azure Kubernetes Service:
+
+    <Steps>
+      <Step title="Configure kubectl for AKS">
+        ```bash
+        az aks get-credentials \
+          --resource-group <resource-group> \
+          --name <cluster-name>
+        ```
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        helm install meshery meshery/meshery \
+          --namespace meshery \
+          --create-namespace
+        ```
+      </Step>
+
+      <Step title="Expose via LoadBalancer (optional)">
+        ```bash
+        kubectl patch svc meshery -n meshery \
+          -p '{"spec": {"type": "LoadBalancer"}}'
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+### Local Kubernetes
+
+<Tabs>
+  <Tab title="Minikube">
+    Deploy Meshery on Minikube:
+
+    <Steps>
+      <Step title="Start Minikube">
+        ```bash
+        minikube start --cpus 4 --memory 8192
+        ```
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        mesheryctl system start --platform kubernetes
+        ```
+      </Step>
+
+      <Step title="Access Meshery">
+        ```bash
+        minikube service meshery -n meshery
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="kind">
+    Deploy Meshery on kind (Kubernetes in Docker):
+
+    <Steps>
+      <Step title="Create kind cluster">
+        ```bash
+        kind create cluster --name meshery-cluster
+        ```
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        mesheryctl system start --platform kubernetes
+        ```
+      </Step>
+
+      <Step title="Port forward to access">
+        ```bash
+        kubectl port-forward svc/meshery -n meshery 9081:9081
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Docker Desktop">
+    Deploy on Docker Desktop's Kubernetes:
+
+    <Steps>
+      <Step title="Enable Kubernetes">
+        1. Open Docker Desktop
+        2. Go to **Settings** → **Kubernetes**
+        3. Check **Enable Kubernetes**
+        4. Click **Apply & Restart**
+      </Step>
+
+      <Step title="Install Meshery">
+        ```bash
+        mesheryctl system start --platform kubernetes
+        ```
+      </Step>
+
+      <Step title="Access Meshery">
+        ```bash
+        kubectl port-forward svc/meshery -n meshery 9081:9081
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Platform Support Matrix
+
+| Platform | Support Status | Installation Method |
+|----------|----------------|--------------------|
+| Docker | ✅ Fully Supported | `mesheryctl`, Docker Compose, Docker Extension |
+| Kubernetes | ✅ Fully Supported | `mesheryctl`, Helm, kubectl |
+| AKS | ✅ Fully Supported | `mesheryctl`, Helm |
+| EKS | ✅ Fully Supported | `mesheryctl`, Helm |
+| GKE | ✅ Fully Supported | `mesheryctl`, Helm |
+| Minikube | ✅ Fully Supported | `mesheryctl`, Helm |
+| kind | ✅ Fully Supported | `mesheryctl`, Helm |
+| Docker Desktop | ✅ Fully Supported | Docker Extension, `mesheryctl` |
+| OpenShift | ✅ Fully Supported | `mesheryctl`, Helm |
+| Rancher | ✅ Fully Supported | `mesheryctl`, Helm |
+| macOS | ✅ Fully Supported | `mesheryctl`, Homebrew |
+| Linux | ✅ Fully Supported | `mesheryctl` |
+| Windows | ✅ Fully Supported | `mesheryctl`, Scoop, WSL2 |
+| Raspberry Pi | 🚧 In Progress | - |
+
+## Configuration Options
+
+### Environment Variables
+
+Meshery can be configured using environment variables:
+
+```bash
+# Provider configuration
+PROVIDER_BASE_URLS=https://cloud.layer5.io
+
+# Port configuration
+PORT=9081
+
+# Kubeconfig location
+KUBECONFIG_FOLDER=/home/appuser/.kube
+
+# Adapter URLs (optional)
+ADAPTER_URLS=meshery-istio:10000 meshery-linkerd:10001
+
+# Event identifier
+EVENT=mesheryLocal
+```
+
+### Helm Values
+
+Customize Helm deployments with a `values.yaml` file:
+
+```yaml
+# values.yaml
+env:
+  PROVIDER_BASE_URLS: "https://cloud.layer5.io"
+  
+service:
+  type: LoadBalancer
+  port: 9081
+
+meshery-istio:
+  enabled: true
+  
+meshery-linkerd:
+  enabled: true
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+```
+
+Install with custom values:
+```bash
+helm install meshery meshery/meshery \
+  --namespace meshery \
+  --create-namespace \
+  -f values.yaml
+```
+
+## Post-Installation
+
+### Verify Installation
+
+<Steps>
+  <Step title="Check component status">
+    ```bash
+    mesheryctl system status
+    ```
+
+    Or using kubectl:
+    ```bash
+    kubectl get pods -n meshery
+    ```
+  </Step>
+
+  <Step title="View logs">
+    ```bash
+    mesheryctl system logs
+    ```
+
+    Or for specific components:
+    ```bash
+    kubectl logs -n meshery deployment/meshery
+    ```
+  </Step>
+
+  <Step title="Access Meshery UI">
+    Open your browser to `http://localhost:9081`
+  </Step>
+</Steps>
+
+### Connect Kubernetes Cluster
+
+After installation, connect your Kubernetes cluster:
+
+```bash
+mesheryctl system context create k8s --set
+```
+
+Or use the UI:
+1. Navigate to **Settings** → **Connections**
+2. Click **+ Connect Cluster**
+3. Select your kubeconfig context
+4. Click **Connect**
+
+## Uninstallation
+
+<Tabs>
+  <Tab title="mesheryctl">
+    ```bash
+    mesheryctl system stop
+    mesheryctl system reset
+    ```
+  </Tab>
+
+  <Tab title="Docker Compose">
+    ```bash
+    docker-compose down -v
+    ```
+  </Tab>
+
+  <Tab title="Helm">
+    ```bash
+    helm uninstall meshery --namespace meshery
+    kubectl delete namespace meshery
+    ```
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Installation fails with 'permission denied'">
+    Ensure you have proper permissions:
+    
+    **Docker:** Add your user to the docker group:
+    ```bash
+    sudo usermod -aG docker $USER
+    newgrp docker
+    ```
+    
+    **Kubernetes:** Verify cluster-admin permissions:
+    ```bash
+    kubectl auth can-i '*' '*' --all-namespaces
+    ```
+  </Accordion>
+
+  <Accordion title="Pods stuck in Pending state">
+    Check resource availability:
+    ```bash
+    kubectl describe pod <pod-name> -n meshery
+    ```
+    
+    Verify node resources:
+    ```bash
+    kubectl top nodes
+    ```
+    
+    Ensure persistent volume claims are bound:
+    ```bash
+    kubectl get pvc -n meshery
+    ```
+  </Accordion>
+
+  <Accordion title="Cannot access Meshery UI">
+    Verify service is running:
+    ```bash
+    kubectl get svc meshery -n meshery
+    ```
+    
+    Check port forwarding:
+    ```bash
+    kubectl port-forward svc/meshery -n meshery 9081:9081
+    ```
+    
+    Verify firewall rules allow port 9081.
+  </Accordion>
+
+  <Accordion title="Helm installation fails">
+    Update Helm repositories:
+    ```bash
+    helm repo update
+    ```
+    
+    Verify Helm version (3.0+ required):
+    ```bash
+    helm version
+    ```
+    
+    Check for existing releases:
+    ```bash
+    helm list -n meshery
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="bolt" href="/quickstart">
+    Follow the quick start guide to connect your first cluster
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/essentials/architecture">
+    Learn about Meshery's architecture and components
+  </Card>
+  <Card title="Integrations" icon="puzzle-piece" href="https://meshery.io/integrations">
+    Explore 300+ cloud native integrations
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="https://docs.meshery.io/reference/mesheryctl">
+    Complete mesheryctl command reference
+  </Card>
+</CardGroup>
+
+## Additional Resources
+
+- [Meshery Documentation](https://docs.meshery.io)
+- [GitHub Repository](https://github.com/meshery/meshery)
+- [Helm Charts](https://github.com/meshery/meshery/tree/master/install/kubernetes/helm)
+- [Community Support](https://slack.meshery.io)
+- [Discussion Forum](https://meshery.io/community#discussion-forums)

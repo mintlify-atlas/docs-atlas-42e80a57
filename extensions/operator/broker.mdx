@@ -1,0 +1,531 @@
+---
+title: Meshery Broker
+description: NATS-based event streaming for Meshery cluster communication
+---
+
+Meshery Broker is a NATS server that provides pub/sub messaging infrastructure for communication between Meshery components. It enables MeshSync to publish cluster state changes and Meshery Server to receive real-time updates, forming the backbone of Meshery's event-driven architecture.
+
+## Overview
+
+The Meshery Broker serves as a message bus for:
+
+- **Event Distribution**: Publishing cluster resource changes from MeshSync
+- **Real-time Updates**: Delivering events to Meshery Server for processing
+- **Decoupling**: Enabling independent operation of MeshSync and Meshery Server
+- **Scalability**: Supporting multiple subscribers and publishers
+- **Reliability**: Ensuring message delivery with NATS guarantees
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      NATS Server (Broker)                         │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                  Topic: meshery.meshsync.request           │  │
+│  │                                                              │  │
+│  │  Publishers:                    Subscribers:                │  │
+│  │  • MeshSync instances          • Meshery Server           │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                  Topic: meshery.broker                    │  │
+│  │                                                              │  │
+│  │  Publishers:                    Subscribers:                │  │
+│  │  • Meshery Server              • Adapters                 │  │
+│  │  • Adapters                     • MeshSync                │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  Exposed via:                                                     │
+│  • Service: meshery-broker (LoadBalancer)                       │
+│  • Port: 4222 (NATS protocol)                                   │
+└─────────────────────────────────────────────────────────────────┘
+         │                                      │
+         │ Publish                          │ Subscribe
+         ▼                                      ▼
+┌──────────────────────────────┐  ┌──────────────────────────────┐
+│        MeshSync           │  │       Meshery Server       │
+│   (In-cluster Agent)    │  │   (External or In-cluster) │
+└──────────────────────────────┘  └──────────────────────────────┘
+```
+
+## Deployment
+
+The Broker is deployed by the Meshery Operator based on the `Broker` CRD:
+
+```yaml
+apiVersion: meshery.io/v1alpha1
+kind: Broker
+metadata:
+  name: meshery-broker
+  namespace: meshery
+spec:
+  size: 1  # Number of replicas
+status:
+  conditions:
+  - type: Ready
+    status: "True"
+    lastTransitionTime: "2024-01-15T10:30:00Z"
+    reason: BrokerDeployed
+    message: Broker is running and accepting connections
+  endpoint:
+    internal: meshery-broker.meshery.svc.cluster.local:4222
+    external: 34.123.45.67:4222  # LoadBalancer IP
+```
+
+### Generated Resources
+
+The operator creates:
+
+1. **Deployment**: NATS server pod(s)
+2. **Service**: LoadBalancer exposing port 4222
+3. **ConfigMap**: NATS server configuration (optional)
+
+## Service Configuration
+
+The Broker service is exposed via LoadBalancer:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: meshery-broker
+  namespace: meshery
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 4222
+    targetPort: 4222
+    protocol: TCP
+    name: nats
+  selector:
+    app: meshery-broker
+```
+
+### Service Types
+
+**LoadBalancer** (default):
+- Provides external IP for out-of-cluster Meshery Server
+- Required when Meshery Server runs outside Kubernetes
+- Automatically provisioned by cloud providers (AWS ELB, GCP LB, etc.)
+
+**ClusterIP**:
+- Internal-only access
+- Use when Meshery Server runs in same cluster
+- More secure, no external exposure
+
+**NodePort**:
+- Exposes on node IP at static port
+- Use when LoadBalancer unavailable (on-premises, minikube)
+- Access via `<NodeIP>:<NodePort>`
+
+## NATS Topics
+
+Meshery uses predefined NATS topics for communication:
+
+### meshery.meshsync.request
+
+**Purpose**: Cluster state synchronization
+
+**Publishers**:
+- MeshSync instances (one per cluster)
+
+**Subscribers**:
+- Meshery Server
+
+**Message Format**:
+```json
+{
+  "object": { /* Kubernetes resource */ },
+  "type": "ADDED|MODIFIED|DELETED",
+  "cluster_id": "cluster-identifier"
+}
+```
+
+**Usage**:
+```go
+// From server/models/meshsync_events.go
+const MeshsyncRequestSubject = "meshery.meshsync.request"
+
+// Subscribe
+subscription, err := brokerConn.Subscribe(MeshsyncRequestSubject, func(msg *broker.Message) {
+    // Process cluster event
+})
+```
+
+### meshery.broker
+
+**Purpose**: General broker events and control messages
+
+**Publishers**:
+- Meshery Server
+- Adapters
+
+**Subscribers**:
+- MeshSync
+- Adapters
+
+**Message Types**:
+- Adapter registration
+- Health checks
+- Control commands
+
+## Connection Examples
+
+### From MeshSync (In-cluster)
+
+```go
+import "github.com/nats-io/nats.go"
+
+// Connect to broker using internal service
+brokerURL := "nats://meshery-broker.meshery.svc.cluster.local:4222"
+nc, err := nats.Connect(brokerURL)
+if err != nil {
+    log.Fatal(err)
+}
+defer nc.Close()
+
+// Publish event
+data, _ := json.Marshal(event)
+nc.Publish("meshery.meshsync.request", data)
+```
+
+### From Meshery Server (External)
+
+```go
+// Get external endpoint from Broker status
+brokerURL := "nats://34.123.45.67:4222"  // LoadBalancer IP
+nc, err := nats.Connect(brokerURL)
+if err != nil {
+    log.Fatal(err)
+}
+defer nc.Close()
+
+// Subscribe to events
+sub, err := nc.Subscribe("meshery.meshsync.request", func(msg *nats.Msg) {
+    var event Event
+    json.Unmarshal(msg.Data, &event)
+    // Process event
+})
+```
+
+### With Authentication (Future)
+
+```go
+opts := []nats.Option{
+    nats.Token("your-token"),
+    // Or username/password
+    nats.UserInfo("user", "password"),
+}
+
+nc, err := nats.Connect(brokerURL, opts...)
+```
+
+## Monitoring
+
+### Check Broker Status
+
+```bash
+# Check Broker CR
+kubectl get broker -n meshery
+
+# Get detailed status
+kubectl describe broker meshery-broker -n meshery
+
+# Check pod
+kubectl get pods -n meshery -l app=meshery-broker
+
+# View logs
+kubectl logs -n meshery -l app=meshery-broker --tail=100 -f
+
+# Check service and endpoint
+kubectl get svc -n meshery meshery-broker
+kubectl get endpoints -n meshery meshery-broker
+```
+
+### Get External Endpoint
+
+```bash
+# Get LoadBalancer IP
+kubectl get svc -n meshery meshery-broker -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+
+# Or from Broker status
+kubectl get broker meshery-broker -n meshery -o jsonpath='{.status.endpoint.external}'
+```
+
+### NATS Monitoring
+
+NATS provides monitoring endpoints:
+
+```bash
+# Port forward monitoring port
+kubectl port-forward -n meshery svc/meshery-broker 8222:8222
+
+# Access monitoring endpoint
+curl http://localhost:8222/varz
+curl http://localhost:8222/connz
+curl http://localhost:8222/subsz
+```
+
+**Metrics**:
+- `varz`: General server information
+- `connz`: Connection details
+- `subsz`: Subscription information
+- `routez`: Route information (clustering)
+
+## Troubleshooting
+
+### Broker Not Starting
+
+```bash
+# Check operator logs
+kubectl logs -n meshery deployment/meshery-operator -c manager | grep -i broker
+
+# Check broker pod events
+kubectl describe pod -n meshery -l app=meshery-broker
+
+# Check resource constraints
+kubectl top pod -n meshery -l app=meshery-broker
+```
+
+### No External IP Assigned
+
+For LoadBalancer services:
+
+```bash
+# Check service status
+kubectl describe svc -n meshery meshery-broker
+
+# Check cloud provider integration
+kubectl get events -n meshery --field-selector involvedObject.name=meshery-broker
+```
+
+**Minikube**:
+```bash
+# Enable tunnel for LoadBalancer
+minikube tunnel
+```
+
+**Docker Desktop**:
+- LoadBalancer automatically maps to localhost
+
+**On-premises**:
+- Use MetalLB or change to NodePort:
+```bash
+kubectl patch svc meshery-broker -n meshery -p '{"spec":{"type":"NodePort"}}'
+```
+
+### Connection Failures
+
+```bash
+# Test connectivity from within cluster
+kubectl run -it --rm nats-test --image=natsio/nats-box --restart=Never -- \
+  nats pub -s nats://meshery-broker.meshery:4222 test "hello"
+
+# Test from external
+nats pub -s nats://<EXTERNAL-IP>:4222 test "hello"
+
+# Check network policies
+kubectl get networkpolicies -n meshery
+
+# Check firewall rules (cloud provider)
+# Ensure port 4222 is allowed
+```
+
+### Message Not Delivered
+
+```bash
+# Subscribe to topic for testing
+kubectl run -it --rm nats-sub --image=natsio/nats-box --restart=Never -- \
+  nats sub -s nats://meshery-broker.meshery:4222 "meshery.>"
+
+# Publish test message
+kubectl run -it --rm nats-pub --image=natsio/nats-box --restart=Never -- \
+  nats pub -s nats://meshery-broker.meshery:4222 meshery.test "test message"
+
+# Check NATS subscriptions
+kubectl port-forward -n meshery svc/meshery-broker 8222:8222
+curl http://localhost:8222/subsz
+```
+
+## High Availability
+
+### Clustered NATS (Future)
+
+For production deployments, configure NATS clustering:
+
+```yaml
+apiVersion: meshery.io/v1alpha1
+kind: Broker
+metadata:
+  name: meshery-broker
+spec:
+  size: 3  # Deploy 3 replicas
+  clustering:
+    enabled: true
+```
+
+### JetStream (Future)
+
+Enable persistent message queuing:
+
+```yaml
+spec:
+  jetstream:
+    enabled: true
+    storageClass: standard
+    storageSize: 10Gi
+```
+
+## Security
+
+### Authentication
+
+Configure NATS authentication:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: meshery-broker-auth
+  namespace: meshery
+type: Opaque
+stringData:
+  users.json: |
+    {
+      "users": [
+        {"user": "meshery", "password": "<password>"}
+      ]
+    }
+```
+
+Reference in Broker:
+```yaml
+spec:
+  auth:
+    secretRef:
+      name: meshery-broker-auth
+```
+
+### TLS Encryption
+
+Enable TLS for broker connections:
+
+```yaml
+spec:
+  tls:
+    enabled: true
+    secretName: meshery-broker-tls
+```
+
+### Network Policies
+
+Restrict broker access:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: meshery-broker-policy
+  namespace: meshery
+spec:
+  podSelector:
+    matchLabels:
+      app: meshery-broker
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow from MeshSync
+  - from:
+    - podSelector:
+        matchLabels:
+          app: meshery-meshsync
+    ports:
+    - protocol: TCP
+      port: 4222
+  # Allow from external Meshery Server (adjust as needed)
+  - from:
+    - ipBlock:
+        cidr: 10.0.0.0/8
+    ports:
+    - protocol: TCP
+      port: 4222
+```
+
+## Performance Tuning
+
+### Resource Limits
+
+```yaml
+apiVersion: meshery.io/v1alpha1
+kind: Broker
+metadata:
+  name: meshery-broker
+spec:
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+```
+
+### NATS Configuration
+
+Custom NATS server config:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: meshery-broker-config
+data:
+  nats.conf: |
+    port: 4222
+    
+    # Increase limits for high-throughput
+    max_payload: 10MB
+    max_connections: 1000
+    
+    # Enable monitoring
+    http_port: 8222
+    
+    # Logging
+    debug: false
+    trace: false
+    logtime: true
+```
+
+## Best Practices
+
+1. **Deployment**:
+   - Use LoadBalancer for external Meshery Server
+   - Use ClusterIP when Meshery runs in-cluster
+   - Enable monitoring endpoints
+
+2. **Security**:
+   - Enable authentication in production
+   - Use TLS for external connections
+   - Apply network policies
+
+3. **Reliability**:
+   - Deploy multiple replicas for HA
+   - Configure resource limits
+   - Monitor connection and subscription metrics
+
+4. **Performance**:
+   - Tune max_payload for large cluster events
+   - Adjust max_connections based on cluster count
+   - Use JetStream for guaranteed delivery
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MeshSync" icon="sync" href="/extensions/operator/meshsync">
+    Configure cluster discovery
+  </Card>
+  <Card title="Operator Overview" icon="kubernetes" href="/extensions/operator/overview">
+    Back to operator documentation
+  </Card>
+</CardGroup>

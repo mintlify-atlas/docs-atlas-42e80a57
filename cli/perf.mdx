@@ -1,0 +1,527 @@
+---
+title: mesheryctl perf
+description: Run performance tests and manage test profiles
+---
+
+The `perf` command enables performance testing of cloud native infrastructure using load generators like Fortio, wrk2, and Nighthawk.
+
+## Synopsis
+
+```bash
+mesheryctl perf [subcommand] [flags]
+```
+
+## Subcommands
+
+- `apply` - Run a performance test
+- `profile` - Manage performance test profiles
+- `result` - View performance test results
+
+## Global Flags
+
+<ParamField path="--token" type="string">
+  Path to Meshery auth token. Short form: `-t`
+</ParamField>
+
+<ParamField path="--output-format" type="string">
+  Output format: `json`, `yaml`. Short form: `-o`
+</ParamField>
+
+<ParamField path="--yes" type="boolean" default="false">
+  Assume yes for user interactive prompts. Short form: `-y`
+</ParamField>
+
+## apply
+
+Run a performance test using existing profiles or command-line flags.
+
+### Usage
+
+```bash
+mesheryctl perf apply [profile-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--url" type="string">
+  Endpoint URL to test (required with new profile)
+</ParamField>
+
+<ParamField path="--name" type="string">
+  Name of the test
+</ParamField>
+
+<ParamField path="--mesh" type="string">
+  Name of the service mesh infrastructure
+</ParamField>
+
+<ParamField path="--qps" type="string">
+  Queries per second (0 for unlimited)
+</ParamField>
+
+<ParamField path="--concurrent-requests" type="string">
+  Number of parallel requests
+</ParamField>
+
+<ParamField path="--duration" type="string">
+  Test duration (e.g., 10s, 5m, 2h)
+</ParamField>
+
+<ParamField path="--load-generator" type="string" default="fortio">
+  Load generator: `fortio`, `wrk2`, `nighthawk`
+</ParamField>
+
+<ParamField path="--file" type="string">
+  Path to SMP-compatible test configuration file. Short form: `-f`
+</ParamField>
+
+<ParamField path="--body" type="string">
+  Load test body (filepath or string). Short form: `-b`
+</ParamField>
+
+<ParamField path="--options" type="string">
+  Additional options for load generator (JSON string or filepath)
+</ParamField>
+
+<ParamField path="--cert-path" type="string">
+  Path to certificate for the load test
+</ParamField>
+
+<ParamField path="--disable-cert" type="boolean" default="false">
+  Do not use certificate present in the profile
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Quick Test
+# Run test with existing profile
+mesheryctl perf apply test-profile --url http://example.com
+
+# Create new profile and run test
+mesheryctl perf apply new-test --url http://192.168.1.15/productpage --qps 300 --concurrent-requests 2 --duration 30s
+```
+
+```bash Advanced Configuration
+# Test with specific load generator
+mesheryctl perf apply stress-test --url https://api.example.com --load-generator wrk2 --duration 5m
+
+# Test with custom QPS and requests
+mesheryctl perf apply load-test \
+  --url http://service.local \
+  --qps 100 \
+  --concurrent-requests 10 \
+  --duration 2m
+```
+
+```bash With Service Mesh
+# Test Istio-enabled service
+mesheryctl perf apply istio-test \
+  --url http://productpage.bookinfo:9080 \
+  --mesh istio \
+  --qps 50 \
+  --duration 1m
+```
+
+```bash From Configuration File
+# Run test from SMP config file
+mesheryctl perf apply test-profile -f perf-config.yaml
+
+# Override config values with flags
+mesheryctl perf apply test-profile -f config.yaml --duration 10m
+```
+
+```bash With Certificate
+# Use certificate for HTTPS endpoint
+mesheryctl perf apply secure-test \
+  --url https://secure.example.com \
+  --cert-path /path/to/cert.pem
+
+# Disable certificate from profile
+mesheryctl perf apply test --url https://example.com --disable-cert
+```
+
+```bash Custom Options
+# Fortio options
+mesheryctl perf apply test --url http://example.com \
+  --load-generator fortio \
+  --options '{"MethodOverride": "POST"}'
+
+# Nighthawk options
+mesheryctl perf apply test --url http://example.com \
+  --load-generator nighthawk \
+  --options '{"requests_per_second": 10, "max_pending_requests": 5}'
+
+# wrk2 options from file
+mesheryctl perf apply test --url http://example.com \
+  --load-generator wrk2 \
+  --options ./wrk2-options.json
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Initiating Performance test ...
+Running test: stress-test
+URL: http://example.com
+Duration: 30s
+Concurrent Requests: 2
+QPS: 300
+
+Test Completed!
+Results:
+  Requests: 9000
+  Duration: 30.05s
+  QPS: 299.5
+  Latency (avg): 6.5ms
+  Latency (p50): 5.2ms
+  Latency (p99): 15.8ms
+```
+
+## profile
+
+Manage performance test profiles.
+
+### Usage
+
+```bash
+mesheryctl perf profile [profile-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--list" type="boolean">
+  List all performance profiles
+</ParamField>
+
+<ParamField path="--view" type="boolean">
+  View profile details
+</ParamField>
+
+<ParamField path="--delete" type="boolean">
+  Delete a profile
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Profiles
+# List all profiles
+mesheryctl perf profile --list
+
+# View in JSON
+mesheryctl perf profile --list -o json
+```
+
+```bash View Profile
+# View profile details
+mesheryctl perf profile test-profile --view
+
+# View in YAML format
+mesheryctl perf profile test-profile --view -o yaml
+```
+
+```bash Delete Profile
+# Delete a profile
+mesheryctl perf profile old-test --delete
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+PERFORMANCE PROFILES:
+
+Name: load-test-1
+ID: 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+Endpoint: http://example.com
+Load Generator: fortio
+QPS: 100
+Duration: 30s
+
+Name: stress-test
+ID: 8f9c53a0-1f6d-5c8b-9g4e-0d3f2b7c6e5d
+Endpoint: http://api.example.com
+Load Generator: wrk2
+QPS: 500
+Duration: 5m
+```
+
+## result
+
+View performance test results.
+
+### Usage
+
+```bash
+mesheryctl perf result [test-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--list" type="boolean">
+  List all test results
+</ParamField>
+
+<ParamField path="--view" type="boolean">
+  View detailed results
+</ParamField>
+
+<ParamField path="--output-format" type="string">
+  Output format: `json`, `yaml`. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Results
+# List all test results
+mesheryctl perf result --list
+
+# List in JSON format
+mesheryctl perf result --list -o json
+```
+
+```bash View Results
+# View specific test result
+mesheryctl perf result stress-test --view
+
+# View in YAML
+mesheryctl perf result stress-test --view -o yaml
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+TEST RESULTS:
+
+Test: stress-test
+Profile: load-test-1
+Date: 2024-03-10 14:30:00
+Duration: 30.05s
+
+Metrics:
+  Total Requests: 9000
+  Successful: 8950 (99.4%)
+  Failed: 50 (0.6%)
+  QPS (actual): 299.5
+  
+Latency:
+  Average: 6.5ms
+  Min: 2.1ms
+  Max: 125.3ms
+  p50: 5.2ms
+  p90: 10.8ms
+  p95: 13.2ms
+  p99: 15.8ms
+```
+
+## Load Generators
+
+Meshery supports three load generators:
+
+### Fortio (Default)
+
+- **Best for**: General-purpose load testing
+- **Features**: Uniform request distribution, detailed latency histograms
+- **Options**: MethodOverride, Headers, etc.
+
+```bash
+mesheryctl perf apply test --load-generator fortio --url http://example.com
+```
+
+### wrk2
+
+- **Best for**: High-throughput testing
+- **Features**: Constant throughput, scriptable with Lua
+- **Options**: DurationInSeconds, Thread, etc.
+
+```bash
+mesheryctl perf apply test --load-generator wrk2 --url http://example.com
+```
+
+### Nighthawk
+
+- **Best for**: Advanced HTTP/2 and gRPC testing
+- **Features**: Precise request pacing, detailed metrics
+- **Options**: requests_per_second, max_pending_requests, etc.
+
+```bash
+mesheryctl perf apply test --load-generator nighthawk --url http://example.com
+```
+
+## SMP Configuration File
+
+Service Mesh Performance (SMP) compatible YAML file format:
+
+```yaml
+smpVersion: v0.0.1
+config:
+  name: my-performance-test
+  duration: 30s
+  clients:
+    - internal: false
+      load_generator: fortio
+      protocol: http
+      connections: 2
+      rps: 100
+      endpoint_urls:
+        - http://example.com
+      body: |
+        {"key": "value"}
+service_mesh:
+  type: 3  # Istio
+  name: istio
+```
+
+Use with:
+
+```bash
+mesheryctl perf apply my-test -f smp-config.yaml
+```
+
+## Test Metrics
+
+Performance tests provide comprehensive metrics:
+
+### Request Metrics
+- Total requests sent
+- Successful requests
+- Failed requests
+- Requests per second (actual vs target)
+
+### Latency Metrics
+- Average latency
+- Min/Max latency
+- Percentiles (p50, p90, p95, p99)
+- Latency histogram
+
+### Resource Metrics
+- CPU usage
+- Memory usage
+- Network throughput
+
+## Use Cases
+
+### Load Testing
+
+```bash
+# Sustained load test
+mesheryctl perf apply load-test \
+  --url http://api.example.com \
+  --qps 100 \
+  --concurrent-requests 10 \
+  --duration 10m
+```
+
+### Stress Testing
+
+```bash
+# High QPS stress test
+mesheryctl perf apply stress-test \
+  --url http://service.local \
+  --qps 1000 \
+  --concurrent-requests 50 \
+  --duration 5m
+```
+
+### Baseline Testing
+
+```bash
+# Establish performance baseline
+mesheryctl perf apply baseline \
+  --url http://app.example.com \
+  --qps 50 \
+  --duration 30s
+```
+
+### Comparison Testing
+
+```bash
+# Test before optimization
+mesheryctl perf apply before-optimization --url http://api.example.com
+
+# Apply optimizations
+# ...
+
+# Test after optimization
+mesheryctl perf apply after-optimization --url http://api.example.com
+
+# Compare results
+mesheryctl perf result before-optimization --view
+mesheryctl perf result after-optimization --view
+```
+
+## Best Practices
+
+### Test Planning
+- Start with low QPS and gradually increase
+- Run tests for sufficient duration (minimum 30s)
+- Test during different times of day
+- Establish baseline before changes
+
+### Resource Monitoring
+- Monitor target service resources during tests
+- Track load generator resource usage
+- Watch for throttling or rate limiting
+
+### Profile Management
+- Create reusable profiles for common tests
+- Use descriptive profile names
+- Document test objectives in profile descriptions
+- Version control SMP configuration files
+
+## Troubleshooting
+
+### Test Fails to Start
+
+```bash
+# Verify URL is accessible
+curl http://example.com
+
+# Check Meshery logs
+mesheryctl system logs
+
+# Verify profile exists
+mesheryctl perf profile --list
+```
+
+### High Error Rate
+
+```bash
+# Reduce QPS
+mesheryctl perf apply test --url http://example.com --qps 10
+
+# Reduce concurrent requests
+mesheryctl perf apply test --url http://example.com --concurrent-requests 1
+
+# Check target service logs and resources
+```
+
+### Certificate Errors
+
+```bash
+# Provide certificate path
+mesheryctl perf apply test --url https://example.com --cert-path /path/to/cert.pem
+
+# Disable certificate validation (testing only)
+mesheryctl perf apply test --url https://example.com --disable-cert
+```
+
+### Load Generator Not Found
+
+```bash
+# Verify available load generators
+mesheryctl perf apply test --help
+
+# Use default Fortio
+mesheryctl perf apply test --url http://example.com --load-generator fortio
+```
+
+## See Also
+
+- [Design Command](/cli/design) - Deploy infrastructure before testing
+- [System Command](/cli/system) - Manage Meshery deployment
+- [Service Mesh Performance](https://smp-spec.io/) - SMP specification

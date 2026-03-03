@@ -1,0 +1,173 @@
+---
+title: Contributing to Meshery
+description: Get started contributing to Meshery and join our vibrant community of cloud native practitioners.
+---
+
+Thank you for your interest in contributing to Meshery! As a CNCF project, Meshery welcomes contributions from developers, designers, technical writers, and cloud native enthusiasts of all skill levels.
+
+## What is Meshery?
+
+Meshery is a self-service engineering platform and the open source, cloud native manager enabling the design and management of all Kubernetes-based infrastructure and applications. With support for 300+ integrations, Meshery provides:
+
+- Visual and collaborative GitOps
+- Infrastructure lifecycle management
+- Workspaces for team collaboration
+- Design pattern catalogs
+- Performance management
+- Multi-tenancy capabilities across any cloud or on-premises environment
+
+## Repository Structure
+
+Understanding the repository structure will help you navigate the codebase:
+
+- **`/server`** – Meshery Server backend written in Go; handles REST/GraphQL APIs, Kubernetes cluster management, adapter orchestration, and database operations (PostgreSQL)
+- **`/ui`** – Meshery UI built with Next.js and React; includes Material UI components, Redux Toolkit state management, and Relay for GraphQL queries
+- **`/mesheryctl`** – Meshery CLI built with Go and Cobra framework; provides commands for installation, lifecycle management, pattern deployment, and system validation
+- **`/docs`** – Documentation site powered by Jekyll; contains user guides, concepts, contributing guides, and API references
+- **`/install`** – Installation artifacts including Dockerfiles, Kubernetes manifests, Helm charts, Docker Compose files, and platform-specific deployment scripts
+- **`/provider-ui`** – Provider-specific UI extensions; isolated React application for remote provider integrations
+- **`/policies`** – Open Policy Agent (OPA) Rego policies for relationship evaluation and design validation
+- **`/.github`** – GitHub Actions workflows, issue templates, Copilot agent definitions, and community health files
+
+## Ways to Contribute
+
+### Code Contributions
+
+- **Server Development** – Improve the Go-based backend ([Server Development Guide](/contributing/server))
+- **UI Development** – Enhance the Next.js/React frontend ([UI Development Guide](/contributing/ui))
+- **CLI Development** – Extend mesheryctl capabilities ([CLI Development Guide](/contributing/cli))
+
+### Non-Code Contributions
+
+- **Documentation** – Improve user guides, API references, and tutorials
+- **Testing** – Write tests, report bugs, and verify fixes ([Testing Guide](/contributing/testing))
+- **Design** – Contribute UX/UI designs and improvements
+- **Community** – Help users on Slack, review pull requests, and participate in community calls
+
+## Getting Started
+
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+**For Server Development (Go):**
+- Go 1.21 or later
+- Docker (for containerized builds)
+- PostgreSQL (for database operations)
+
+**For UI Development (JavaScript/React):**
+- Node.js 16, 17, 18, 19, or 20
+- npm or yarn
+
+**For CLI Development (Go):**
+- Go 1.21 or later
+
+**General Tools:**
+- Git
+- Make
+- kubectl (for Kubernetes integration testing)
+
+See the [Development Setup Guide](/contributing/development-setup) for detailed installation instructions.
+
+## Development Workflow
+
+1. **Fork the Repository** – Create your own fork of the Meshery repository
+2. **Create a Branch** – Branch from `master` with a descriptive name (e.g., `feature/add-workspace-filter`)
+3. **Make Changes** – Implement your changes following our [Code Style Guide](/contributing/code-style)
+4. **Test Locally** – Run tests and verify your changes work as expected
+5. **Commit Changes** – Use conventional commit messages with DCO sign-off
+6. **Open a Pull Request** – Submit your changes for review
+
+## Git Workflow
+
+### Branching Strategy
+
+- **`master`** – Main development branch; all PRs target this branch
+- **Feature branches** – Create from `master` with descriptive names
+- **Release branches** – Managed by maintainers for stable releases
+
+### Commit Messages
+
+Follow this format for commit messages:
+
+```
+[component] descriptive message
+
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+**Examples:**
+- `[UI] Add workspace filter dropdown`
+- `[Server] Fix Kubernetes connection timeout`
+- `[CLI] Add support for pattern validation`
+
+### Developer Certificate of Origin (DCO)
+
+All commits must be signed with the Developer Certificate of Origin (DCO). This certifies that you have the right to submit the code you are contributing.
+
+**Sign your commits with:**
+
+```bash
+git commit -s -m "[component] your commit message"
+```
+
+The `-s` flag automatically adds the `Signed-off-by` line.
+
+### Linking Issues and PRs
+
+Reference related issues and pull requests in your commit messages:
+
+- `Fixes #1234` – Closes issue #1234 when the PR is merged
+- `Relates to #5678` – Links to issue #5678 without closing it
+
+## Code Review Process
+
+1. **Automated Checks** – CI runs linting, tests, and builds
+2. **Maintainer Review** – At least one maintainer reviews your code
+3. **Community Feedback** – Other contributors may provide feedback
+4. **Revisions** – Address review comments and update your PR
+5. **Approval** – Once approved, your PR will be merged
+
+## Quality Standards
+
+Before submitting a pull request, ensure:
+
+- All Go code passes `make golangci`
+- All JavaScript code passes `make ui-lint`
+- Tests pass locally
+- Code follows project conventions
+- Documentation is updated for new features
+
+## Community Resources
+
+- **Slack** – [Join the CNCF Slack](https://slack.cncf.io) and find us in `#meshery`
+- **Community Meetings** – Weekly community calls (see [Community Calendar](https://meshery.io/community#calendar))
+- **Discussion Forum** – [GitHub Discussions](https://github.com/meshery/meshery/discussions)
+- **Social Media** – Follow [@mesheryio](https://twitter.com/mesheryio) on Twitter
+
+## Security
+
+If you discover a security vulnerability, please DO NOT open a public issue. Instead, email [security@meshery.dev](mailto:security@meshery.dev). We will acknowledge your report within 10 business days.
+
+See our [Security Policy](https://github.com/meshery/meshery/security/policy) for more details.
+
+## License
+
+By contributing to Meshery, you agree that your contributions will be licensed under the Apache License 2.0.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Development Setup" icon="laptop-code" href="/contributing/development-setup">
+    Set up your local development environment
+  </Card>
+  <Card title="Code Style Guide" icon="code" href="/contributing/code-style">
+    Learn Meshery's coding conventions
+  </Card>
+  <Card title="Server Development" icon="server" href="/contributing/server">
+    Contribute to the Go backend
+  </Card>
+  <Card title="UI Development" icon="palette" href="/contributing/ui">
+    Contribute to the React frontend
+  </Card>
+</CardGroup>

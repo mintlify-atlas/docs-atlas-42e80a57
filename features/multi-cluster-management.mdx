@@ -1,0 +1,377 @@
+---
+title: Multi-cluster Management
+description: Manage multiple Kubernetes clusters across any infrastructure from a single pane of glass with Meshery
+---
+
+Meshery provides comprehensive multi-cluster Kubernetes management capabilities, enabling you to operate infrastructure across multiple clusters, clouds, and on-premises environments from a unified interface. Gain visibility, control, and consistency across your entire Kubernetes landscape.
+
+## Overview
+
+Managing multiple Kubernetes clusters introduces complexity in configuration, deployment, and observability. Meshery simplifies multi-cluster operations by providing:
+
+- **Unified Dashboard**: Single view of all connected Kubernetes clusters
+- **Multi-cluster Deployment**: Deploy workloads to multiple clusters simultaneously
+- **Cross-cluster Discovery**: Discover and inventory resources across all clusters
+- **Consistent Configuration**: Apply consistent policies and configurations
+- **Environment Grouping**: Organize clusters into logical environments
+
+<CardGroup cols={2}>
+  <Card title="Any Kubernetes" icon="dharmachakra">
+    Works with any Kubernetes distribution: EKS, GKE, AKS, OpenShift, Rancher, and more
+  </Card>
+  <Card title="Multi-cloud" icon="cloud">
+    Manage clusters across AWS, Azure, GCP, and on-premises
+  </Card>
+  <Card title="Real-time Sync" icon="rotate">
+    MeshSync continuously discovers and synchronizes cluster state
+  </Card>
+  <Card title="Unified View" icon="table-columns">
+    Single dashboard for all cluster resources and configurations
+  </Card>
+</CardGroup>
+
+## Connecting Clusters
+
+### Adding Kubernetes Contexts
+
+Connect Kubernetes clusters to Meshery by uploading kubeconfig files:
+
+<Steps>
+  <Step title="Navigate to Connections">
+    Go to the Connections page in Meshery
+  </Step>
+  <Step title="Upload Kubeconfig">
+    Click "Import Config" and upload your kubeconfig file
+  </Step>
+  <Step title="Select Contexts">
+    Choose which contexts from the kubeconfig to connect
+  </Step>
+  <Step title="Verify Connection">
+    Meshery validates connectivity and displays connection status
+  </Step>
+  <Step title="Deploy Operator">
+    Optionally deploy Meshery Operator and MeshSync for enhanced features
+  </Step>
+</Steps>
+
+**Using mesheryctl:**
+
+```bash
+# Connect current kubectl context
+mesheryctl system context create <context-name>
+
+# Connect from specific kubeconfig
+mesheryctl system context create <context-name> --kubeconfig ~/.kube/config
+
+# List connected contexts
+mesheryctl system context list
+
+# Switch active context
+mesheryctl system context switch <context-name>
+```
+
+### Connection States
+
+Meshery tracks the following connection states:
+
+- **Registered**: Context is registered but not yet connected
+- **Connected**: Active connection established to the cluster
+- **Discovered**: MeshSync has discovered cluster resources
+- **Ignored**: Context is registered but intentionally not connected
+- **Errored**: Connection attempt failed or lost connectivity
+
+## Cluster Discovery
+
+### MeshSync
+
+MeshSync is Meshery's cluster discovery and synchronization engine:
+
+<CardGroup cols={2}>
+  <Card title="Continuous Discovery">
+    Automatically discovers all Kubernetes resources in connected clusters
+  </Card>
+  <Card title="State Synchronization">
+    Keeps Meshery's view synchronized with actual cluster state
+  </Card>
+  <Card title="Change Detection">
+    Detects and reports changes to cluster resources in real-time
+  </Card>
+  <Card title="Resource Inventory">
+    Maintains inventory of all resources across all clusters
+  </Card>
+</CardGroup>
+
+**Deploying MeshSync:**
+
+```bash
+# Deploy MeshSync to a context
+mesheryctl system channel deploy meshsync --context <context-name>
+
+# Check MeshSync status
+mesheryctl system status
+
+# View MeshSync logs
+kubectl logs -n meshery -l app=meshsync
+```
+
+### Resource Discovery
+
+MeshSync discovers and inventories:
+
+- **Core Resources**: Pods, Services, Deployments, StatefulSets, DaemonSets
+- **Storage**: PersistentVolumes, PersistentVolumeClaims, StorageClasses
+- **Networking**: Ingresses, NetworkPolicies, Services
+- **Configuration**: ConfigMaps, Secrets
+- **RBAC**: Roles, RoleBindings, ServiceAccounts
+- **Custom Resources**: All CRDs and their instances
+- **Service Mesh Resources**: Istio, Linkerd, Consul resources
+
+## Environments
+
+### Grouping Clusters
+
+Environments allow you to group related clusters and connections:
+
+<Steps>
+  <Step title="Create Environment">
+    Navigate to Environments and click "Create Environment"
+  </Step>
+  <Step title="Add Description">
+    Name your environment (e.g., "Production", "Development", "Edge Clusters")
+  </Step>
+  <Step title="Assign Connections">
+    Select which Kubernetes contexts belong to this environment
+  </Step>
+  <Step title="Configure Credentials">
+    Add any required credentials for the environment
+  </Step>
+  <Step title="Use for Deployment">
+    Select the environment as a deployment target for designs
+  </Step>
+</Steps>
+
+### Environment Use Cases
+
+<AccordionGroup>
+  <Accordion title="Multi-region Deployments">
+    Group clusters by region for geographic distribution: us-east, us-west, eu-central
+  </Accordion>
+  <Accordion title="Environment Separation">
+    Separate development, staging, and production environments
+  </Accordion>
+  <Accordion title="Team Segmentation">
+    Organize clusters by team ownership or application domain
+  </Accordion>
+  <Accordion title="Edge Computing">
+    Group edge clusters separately from central data center clusters
+  </Accordion>
+</AccordionGroup>
+
+## Multi-cluster Deployments
+
+### Deploying to Multiple Clusters
+
+Deploy the same configuration to multiple clusters simultaneously:
+
+<Steps>
+  <Step title="Prepare Design">
+    Create or select a design to deploy
+  </Step>
+  <Step title="Validate Design">
+    Run validation to ensure design correctness
+  </Step>
+  <Step title="Select Clusters">
+    Choose multiple Kubernetes contexts or an entire environment as target
+  </Step>
+  <Step title="Configure Options">
+    Set deployment options (namespace, skip CRDs, etc.)
+  </Step>
+  <Step title="Deploy">
+    Execute deployment across all selected clusters
+  </Step>
+  <Step title="Monitor Progress">
+    Track deployment status for each cluster individually
+  </Step>
+</Steps>
+
+**mesheryctl Multi-cluster Deploy:**
+
+```bash
+# Deploy to specific contexts
+mesheryctl pattern deploy -f design.yaml \
+  --contexts prod-us-east,prod-us-west,prod-eu
+
+# Deploy to all contexts in an environment
+mesheryctl pattern deploy -f design.yaml \
+  --environment production
+```
+
+### Deployment Strategies
+
+<CardGroup cols={2}>
+  <Card title="Parallel Deployment">
+    Deploy to all clusters simultaneously for speed
+  </Card>
+  <Card title="Rolling Deployment">
+    Deploy to clusters sequentially to minimize risk
+  </Card>
+  <Card title="Canary Deployment">
+    Deploy to subset of clusters first, then expand
+  </Card>
+  <Card title="Blue-Green">
+    Maintain separate cluster sets for zero-downtime updates
+  </Card>
+</CardGroup>
+
+## Cluster Monitoring
+
+### Dashboard View
+
+The Meshery dashboard provides unified visibility:
+
+- **Cluster Health**: Health status of all connected clusters
+- **Resource Counts**: Total pods, services, deployments across clusters
+- **Version Information**: Kubernetes version for each cluster
+- **Node Statistics**: Total nodes, CPU, memory across clusters
+- **Mesh Detection**: Service mesh installations detected
+
+### Cluster Resources
+
+View and manage resources across clusters:
+
+<Steps>
+  <Step title="Navigate to Resources">
+    Access the Cluster Resources view from the sidebar
+  </Step>
+  <Step title="Filter by Cluster">
+    Filter resources by Kubernetes context to focus on specific clusters
+  </Step>
+  <Step title="Search Resources">
+    Search for specific resources by name, namespace, or type
+  </Step>
+  <Step title="View Details">
+    Click on resources to view detailed configuration and status
+  </Step>
+  <Step title="Take Actions">
+    Delete, edit, or export resources directly from the UI
+  </Step>
+</Steps>
+
+## Configuration Management
+
+### Consistent Policies
+
+Apply consistent configurations across clusters using Open Policy Agent:
+
+- **Policy Definitions**: Create OPA Rego policies for infrastructure
+- **Multi-cluster Application**: Apply policies to all clusters in an environment
+- **Compliance Checking**: Validate clusters against policy requirements
+- **Drift Detection**: Identify clusters that deviate from policy
+
+### Configuration Drift
+
+Detect and remediate configuration drift:
+
+1. **Design as Source of Truth**: Store desired state as Meshery designs
+2. **Continuous Comparison**: Compare running state vs. desired state
+3. **Drift Alerts**: Receive notifications when drift is detected
+4. **Remediation**: Re-deploy designs to fix drift
+
+## Workspaces and Access Control
+
+### Multi-tenant Clusters
+
+Manage multi-tenant Kubernetes environments:
+
+- **Workspace Isolation**: Isolate team access to specific namespaces/clusters
+- **RBAC Integration**: Leverage Kubernetes RBAC for access control
+- **Credential Management**: Securely manage per-team cluster credentials
+- **Resource Quotas**: Enforce resource limits per workspace
+
+### Team Collaboration
+
+Collaborate across distributed infrastructure:
+
+<CardGroup cols={2}>
+  <Card title="Shared Visibility">
+    All team members see the same multi-cluster view
+  </Card>
+  <Card title="Role-based Access">
+    Control who can view, deploy, or modify clusters
+  </Card>
+  <Card title="Audit Logging">
+    Track all actions across clusters
+  </Card>
+  <Card title="Change History">
+    View history of deployments and modifications
+  </Card>
+</CardGroup>
+
+## Supported Kubernetes Distributions
+
+Meshery works with any Kubernetes-conformant distribution:
+
+| Platform | Support | Notes |
+|----------|---------|-------|
+| **Amazon EKS** | ✅ Full | AWS Elastic Kubernetes Service |
+| **Google GKE** | ✅ Full | Google Kubernetes Engine |
+| **Azure AKS** | ✅ Full | Azure Kubernetes Service |
+| **OpenShift** | ✅ Full | Red Hat OpenShift |
+| **Rancher** | ✅ Full | Rancher Kubernetes Engine |
+| **Kind** | ✅ Full | Kubernetes in Docker |
+| **Minikube** | ✅ Full | Local development clusters |
+| **k3s** | ✅ Full | Lightweight Kubernetes |
+| **MicroK8s** | ✅ Full | Canonical's Kubernetes |
+| **Tanzu** | ✅ Full | VMware Tanzu |
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use Environments for Logical Grouping">
+    Group clusters into environments based on purpose (prod/dev), region, or team ownership for easier management.
+  </Accordion>
+  <Accordion title="Deploy MeshSync for Full Features">
+    Deploy MeshSync to all clusters to enable resource discovery, state synchronization, and change detection.
+  </Accordion>
+  <Accordion title="Implement Consistent Naming">
+    Use consistent naming conventions across clusters for namespaces, labels, and resources.
+  </Accordion>
+  <Accordion title="Test in Non-production First">
+    When deploying to multiple clusters, start with development/staging environments before production.
+  </Accordion>
+  <Accordion title="Monitor Connection Health">
+    Regularly check connection status and address any errored or disconnected clusters.
+  </Accordion>
+  <Accordion title="Use GitOps for Multi-cluster">
+    Combine multi-cluster deployments with GitOps workflows for full traceability and version control.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+### Connection Issues
+
+**Cluster won't connect:**
+- Verify network connectivity from Meshery to cluster API server
+- Check kubeconfig credentials are valid and not expired
+- Ensure firewall rules allow access to cluster API endpoint
+- Verify Meshery has necessary RBAC permissions in the cluster
+
+**MeshSync not discovering resources:**
+```bash
+# Check MeshSync deployment status
+kubectl get deployment -n meshery meshsync
+
+# View MeshSync logs
+kubectl logs -n meshery -l app=meshsync --tail=100
+
+# Verify MeshSync RBAC
+kubectl get clusterrole meshery-operator
+```
+
+## Related Features
+
+- [Environments](/concepts/logical/environments) - Learn more about environment organization
+- [Connections](/concepts/logical/connections) - Understanding Meshery connections
+- [Visual Designer](/features/visual-designer) - Design multi-cluster deployments
+- [GitOps](/features/gitops) - GitOps workflows for multi-cluster

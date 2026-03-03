@@ -1,0 +1,493 @@
+---
+title: MeshSync
+description: Kubernetes cluster discovery and state synchronization agent
+---
+
+MeshSync is a Kubernetes controller that continuously discovers and synchronizes cluster state with Meshery Server. It watches configured Kubernetes resources, detects changes, and publishes events to the Meshery Broker (NATS), enabling real-time cluster monitoring and visualization.
+
+## Overview
+
+MeshSync acts as a bridge between your Kubernetes clusters and Meshery, providing:
+
+- **Real-time Discovery**: Watches Kubernetes resources for ADDED, MODIFIED, and DELETED events
+- **Selective Monitoring**: Configurable whitelist/blacklist for resource types
+- **Event Publishing**: Publishes cluster state changes to NATS broker
+- **Multi-cluster Support**: Independent MeshSync instance per cluster
+- **Low Overhead**: Efficient resource watching with minimal cluster impact
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      MeshSync Process                            │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              Resource Watch Manager                       │  │
+│  │                                                              │  │
+│  │  Kubernetes Informers (watch resources):                  │  │
+│  │  • Pods, Deployments, Services                            │  │
+│  │  • ConfigMaps, Secrets, Namespaces                        │  │
+│  │  • StatefulSets, DaemonSets, ReplicaSets                  │  │
+│  │  • Ingresses, Endpoints, PersistentVolumes                │  │
+│  │  • Custom Resources (CRDs)                                 │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                             │                                  │
+│                             │ Events                           │
+│                             ▼                                  │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              Event Processor                              │  │
+│  │                                                              │  │
+│  │  Filters events based on:                                 │  │
+│  │  • Whitelist (allowed resources)                         │  │
+│  │  • Blacklist (ignored resources)                         │  │
+│  │  • Event types (ADDED, MODIFIED, DELETED)                │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                             │                                  │
+│                             │ Filtered Events                 │
+│                             ▼                                  │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │           NATS Publisher                                  │  │
+│  │                                                              │  │
+│  │  Publishes to topic: meshery.meshsync.request             │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────┬──────────────────────────────────┘
+                             │ NATS Protocol (port 4222)
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Meshery Broker (NATS)                         │
+│                                                                   │
+│  Topic: meshery.meshsync.request                                │
+└─────────────────────────────┬──────────────────────────────────┘
+                             │ Subscribe
+                             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Meshery Server                                │
+│                                                                   │
+│  Processes events and updates PostgreSQL database                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Deployment
+
+MeshSync is deployed by the Meshery Operator based on the `MeshSync` CRD:
+
+```yaml
+apiVersion: meshery.io/v1alpha1
+kind: MeshSync
+metadata:
+  name: meshery-meshsync
+  namespace: meshery
+spec:
+  size: 1
+  version: "v0.7.0"
+  broker:
+    native:
+      name: meshery-broker
+      namespace: meshery
+  watch-list:
+    data:
+      whitelist: |
+        [
+          {"Resource":"namespaces.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"pods.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"services.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"deployments.v1.apps","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"statefulsets.v1.apps","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"daemonsets.v1.apps","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"replicasets.v1.apps","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"ingresses.v1.networking.k8s.io","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"configmaps.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"secrets.v1.","Events":["ADDED","MODIFIED","DELETED"]}
+        ]
+```
+
+## Watch List Configuration
+
+The watch-list ConfigMap defines which resources MeshSync monitors:
+
+### Whitelist
+
+Resources to actively watch:
+
+```json
+[
+  {
+    "Resource": "pods.v1.",
+    "Events": ["ADDED", "MODIFIED", "DELETED"]
+  },
+  {
+    "Resource": "deployments.v1.apps",
+    "Events": ["ADDED", "MODIFIED", "DELETED"]
+  },
+  {
+    "Resource": "services.v1.",
+    "Events": ["ADDED", "MODIFIED", "DELETED"]
+  }
+]
+```
+
+### Blacklist
+
+Resources to explicitly ignore:
+
+```json
+[
+  {
+    "Resource": "events.v1.",
+    "Events": ["ADDED", "MODIFIED", "DELETED"]
+  },
+  {
+    "Resource": "leases.v1.coordination.k8s.io",
+    "Events": ["ADDED", "MODIFIED", "DELETED"]
+  }
+]
+```
+
+### Resource Format
+
+Resource identifiers follow the pattern:
+
+```
+<resource>.<version>.<group>
+```
+
+Examples:
+- Core resources: `pods.v1.`, `services.v1.`, `namespaces.v1.`
+- Apps: `deployments.v1.apps`, `statefulsets.v1.apps`
+- Networking: `ingresses.v1.networking.k8s.io`
+- Custom: `virtualservices.v1beta1.networking.istio.io`
+
+### Default Watch List
+
+The default configuration watches:
+
+| Resource Type | API Group | Events |
+|---------------|-----------|--------|
+| Namespaces | v1 | ADDED, MODIFIED, DELETED |
+| Pods | v1 | ADDED, MODIFIED, DELETED |
+| Services | v1 | ADDED, MODIFIED, DELETED |
+| Deployments | apps/v1 | ADDED, MODIFIED, DELETED |
+| StatefulSets | apps/v1 | ADDED, MODIFIED, DELETED |
+| DaemonSets | apps/v1 | ADDED, MODIFIED, DELETED |
+| ReplicaSets | apps/v1 | ADDED, MODIFIED, DELETED |
+| ConfigMaps | v1 | ADDED, MODIFIED, DELETED |
+| Secrets | v1 | ADDED, MODIFIED, DELETED |
+| Ingresses | networking.k8s.io/v1 | ADDED, MODIFIED, DELETED |
+| Endpoints | v1 | ADDED, MODIFIED, DELETED |
+| PersistentVolumes | v1 | ADDED, MODIFIED, DELETED |
+| PersistentVolumeClaims | v1 | ADDED, MODIFIED, DELETED |
+| StorageClasses | storage.k8s.io/v1 | ADDED, MODIFIED, DELETED |
+| Nodes | v1 | ADDED, MODIFIED, DELETED |
+
+## Event Structure
+
+Events published to NATS follow this structure:
+
+```json
+{
+  "object": {
+    "kind": "Pod",
+    "apiVersion": "v1",
+    "metadata": {
+      "name": "my-app-7d8f5c9b-x7k2m",
+      "namespace": "default",
+      "uid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "labels": {
+        "app": "my-app",
+        "version": "v1"
+      }
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "app",
+          "image": "myapp:v1.0.0"
+        }
+      ]
+    },
+    "status": {
+      "phase": "Running"
+    }
+  },
+  "type": "ADDED",
+  "cluster_id": "k8s-cluster-01"
+}
+```
+
+## Customizing Watch List
+
+### Via Helm Values
+
+```yaml
+# values.yaml
+meshery-meshsync:
+  watchConfig:
+    whitelist: |
+      [
+        {"Resource":"pods.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+        {"Resource":"deployments.v1.apps","Events":["ADDED","MODIFIED","DELETED"]}
+      ]
+    blacklist: |
+      [
+        {"Resource":"events.v1.","Events":["ADDED","MODIFIED","DELETED"]}
+      ]
+```
+
+### Via kubectl
+
+Update the MeshSync CR:
+
+```bash
+kubectl edit meshsync meshery-meshsync -n meshery
+```
+
+Or update the ConfigMap directly:
+
+```bash
+kubectl edit configmap meshery-meshsync-config -n meshery
+```
+
+### Adding Custom Resources
+
+To watch custom CRDs:
+
+```yaml
+spec:
+  watch-list:
+    data:
+      whitelist: |
+        [
+          {"Resource":"virtualservices.v1beta1.networking.istio.io","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"destinationrules.v1beta1.networking.istio.io","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"gateways.v1beta1.networking.istio.io","Events":["ADDED","MODIFIED","DELETED"]}
+        ]
+```
+
+## Broker Configuration
+
+### Native Broker
+
+Use Broker CR in the same cluster:
+
+```yaml
+spec:
+  broker:
+    native:
+      name: meshery-broker
+      namespace: meshery
+```
+
+### Custom/External Broker
+
+Connect to external NATS server:
+
+```yaml
+spec:
+  broker:
+    custom:
+      url: nats://external-nats.example.com:4222
+```
+
+## Monitoring
+
+### Check MeshSync Status
+
+```bash
+# Check MeshSync CR status
+kubectl get meshsync -n meshery
+
+# Get detailed status
+kubectl describe meshsync meshery-meshsync -n meshery
+
+# Check pod status
+kubectl get pods -n meshery -l app=meshery-meshsync
+
+# View logs
+kubectl logs -n meshery -l app=meshery-meshsync --tail=100 -f
+```
+
+### Status Conditions
+
+```yaml
+status:
+  conditions:
+  - type: Ready
+    status: "True"
+    lastTransitionTime: "2024-01-15T10:30:00Z"
+    reason: MeshSyncRunning
+    message: MeshSync is actively watching cluster resources
+  publishing-to: meshery-broker.meshery.svc.cluster.local:4222
+```
+
+### Metrics
+
+MeshSync exposes Prometheus metrics:
+
+```
+# Resources being watched
+meshsync_watched_resources_total{resource="pods"} 45
+meshsync_watched_resources_total{resource="deployments"} 12
+
+# Events published
+meshsync_events_published_total{type="ADDED"} 1234
+meshsync_events_published_total{type="MODIFIED"} 567
+meshsync_events_published_total{type="DELETED"} 89
+
+# Broker connection status
+meshsync_broker_connected 1
+```
+
+## Troubleshooting
+
+### MeshSync Not Publishing Events
+
+```bash
+# Check broker connectivity
+kubectl logs -n meshery -l app=meshery-meshsync | grep -i "broker\|nats"
+
+# Verify broker endpoint
+kubectl get meshsync meshery-meshsync -n meshery -o jsonpath='{.status.publishing-to}'
+
+# Test NATS connection
+kubectl run -it --rm nats-test --image=natsio/nats-box --restart=Never -- \
+  nats pub -s nats://meshery-broker.meshery:4222 test "hello"
+```
+
+### Missing Resource Events
+
+```bash
+# Check watch-list configuration
+kubectl get meshsync meshery-meshsync -n meshery -o yaml | grep -A 50 watch-list
+
+# Verify resource is whitelisted
+kubectl get configmap meshery-meshsync-config -n meshery -o yaml
+
+# Check RBAC permissions
+kubectl auth can-i list pods --as=system:serviceaccount:meshery:meshery-server
+```
+
+### High Memory Usage
+
+Reduce watched resources:
+
+```yaml
+spec:
+  watch-list:
+    data:
+      # Watch only essential resources
+      whitelist: |
+        [
+          {"Resource":"deployments.v1.apps","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"services.v1.","Events":["ADDED","MODIFIED","DELETED"]}
+        ]
+      # Blacklist high-churn resources
+      blacklist: |
+        [
+          {"Resource":"events.v1.","Events":["ADDED","MODIFIED","DELETED"]},
+          {"Resource":"pods.v1.","Events":["MODIFIED"]}
+        ]
+```
+
+### Connection Failures
+
+```bash
+# Check service endpoints
+kubectl get endpoints -n meshery meshery-broker
+
+# Test network connectivity
+kubectl exec -n meshery deployment/meshery-meshsync -- \
+  nc -zv meshery-broker 4222
+
+# Check firewall rules
+kubectl get networkpolicies -n meshery
+```
+
+## Best Practices
+
+1. **Resource Selection**:
+   - Only watch resources relevant to your use case
+   - Exclude high-churn resources (events, leases)
+   - Use blacklist for fine-grained control
+
+2. **Event Types**:
+   - Watch ADDED and DELETED for inventory tracking
+   - Include MODIFIED only when state changes matter
+   - Exclude MODIFIED for static resources
+
+3. **Performance**:
+   - Limit watched namespaces if possible
+   - Use label selectors in future versions
+   - Monitor resource consumption
+
+4. **Security**:
+   - Grant minimal RBAC permissions
+   - Avoid watching sensitive secrets
+   - Use network policies to restrict broker access
+
+## Advanced Configuration
+
+### Multi-Cluster Setup
+
+Deploy one MeshSync per cluster:
+
+```bash
+# Cluster 1
+helm install meshery-operator meshery/meshery-operator \
+  --namespace meshery \
+  --set meshery-meshsync.enabled=true
+
+# Cluster 2 (connect to same broker)
+helm install meshery-operator meshery/meshery-operator \
+  --namespace meshery \
+  --set meshery-meshsync.enabled=true \
+  --set meshery-meshsync.broker.custom.url=nats://broker.example.com:4222
+```
+
+### Custom Deployment
+
+Deploy MeshSync without operator:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meshery-meshsync
+  namespace: meshery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: meshery-meshsync
+  template:
+    metadata:
+      labels:
+        app: meshery-meshsync
+    spec:
+      serviceAccountName: meshery-server
+      containers:
+      - name: meshsync
+        image: meshery/meshsync:stable-latest
+        env:
+        - name: BROKER_URL
+          value: "nats://meshery-broker:4222"
+        - name: CLUSTER_ID
+          value: "my-cluster"
+        volumeMounts:
+        - name: watch-config
+          mountPath: /config
+      volumes:
+      - name: watch-config
+        configMap:
+          name: meshery-meshsync-config
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Meshery Broker" icon="message" href="/extensions/operator/broker">
+    Learn about NATS event streaming
+  </Card>
+  <Card title="Operator Overview" icon="kubernetes" href="/extensions/operator/overview">
+    Back to operator documentation
+  </Card>
+</CardGroup>

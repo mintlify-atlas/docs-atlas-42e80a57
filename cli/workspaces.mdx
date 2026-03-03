@@ -1,0 +1,334 @@
+---
+title: mesheryctl workspace
+description: Manage team workspaces in Meshery
+---
+
+The `workspace` command manages collaborative workspaces within organizations, enabling teams to work together on infrastructure designs and deployments.
+
+## Synopsis
+
+```bash
+mesheryctl workspace [subcommand] [flags]
+```
+
+## Subcommands
+
+- `create` - Create a new workspace
+- `list` - List all workspaces in an organization
+
+## Global Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display total count of workspaces
+</ParamField>
+
+## create
+
+Create a new workspace within an organization.
+
+### Usage
+
+```bash
+mesheryctl workspace create [flags]
+```
+
+### Flags
+
+<ParamField path="--orgID" type="string" required>
+  Organization ID to create workspace in
+</ParamField>
+
+<ParamField path="--name" type="string" required>
+  Workspace name
+</ParamField>
+
+<ParamField path="--description" type="string">
+  Workspace description
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Create Workspace
+# Create a workspace
+mesheryctl workspace create --orgID org-123 --name platform-team --description "Platform engineering workspace"
+
+# Create workspace for specific project
+mesheryctl workspace create --orgID org-123 --name project-alpha --description "Alpha project team"
+```
+
+```bash Development Workspace
+# Create workspace for development team
+mesheryctl workspace create \
+  --orgID org-123 \
+  --name backend-dev \
+  --description "Backend development team workspace"
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Creating workspace...
+Workspace created successfully
+
+ID: ws-7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+Name: platform-team
+Organization: org-123
+Description: Platform engineering workspace
+```
+
+## list
+
+List all workspaces in an organization.
+
+### Usage
+
+```bash
+mesheryctl workspace list [flags]
+```
+
+### Flags
+
+<ParamField path="--orgID" type="string" required>
+  Organization ID to list workspaces from
+</ParamField>
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of workspaces per page
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Workspaces
+# List all workspaces
+mesheryctl workspace list --orgID org-123
+
+# Get workspace count
+mesheryctl workspace --count
+```
+
+```bash Pagination
+# List with pagination
+mesheryctl workspace list --orgID org-123 --page 1 --page-size 50
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+NAME                DESCRIPTION                          CREATED
+platform-team       Platform engineering workspace       2024-03-01 10:30:00
+backend-dev         Backend development team             2024-03-02 14:22:00
+frontend-dev        Frontend development team            2024-03-03 09:15:00
+devops              DevOps and infrastructure            2024-03-04 11:45:00
+
+Total: 4 workspaces
+```
+
+## Use Cases
+
+### Team Organization
+
+```bash
+# Create workspaces for different teams
+mesheryctl workspace create --orgID org-123 --name platform-engineering --description "Platform team"
+mesheryctl workspace create --orgID org-123 --name application-dev --description "App development"
+mesheryctl workspace create --orgID org-123 --name sre-team --description "Site reliability"
+
+# List all workspaces
+mesheryctl workspace list --orgID org-123
+```
+
+### Project-Based Workspaces
+
+```bash
+# Create workspace per project
+mesheryctl workspace create --orgID org-123 --name project-alpha --description "Project Alpha"
+mesheryctl workspace create --orgID org-123 --name project-beta --description "Project Beta"
+mesheryctl workspace create --orgID org-123 --name shared-services --description "Shared infrastructure"
+```
+
+### Environment-Specific Workspaces
+
+```bash
+# Create workspaces aligned with environments
+mesheryctl workspace create --orgID org-123 --name dev-workspace --description "Development work"
+mesheryctl workspace create --orgID org-123 --name staging-workspace --description "Staging deployments"
+mesheryctl workspace create --orgID org-123 --name prod-workspace --description "Production management"
+```
+
+## Workspace Properties
+
+Each workspace includes:
+
+- **ID** - Unique identifier
+- **Name** - Workspace name
+- **Description** - Workspace purpose and details
+- **Organization** - Parent organization
+- **Members** - Team members with access
+- **Designs** - Infrastructure designs in workspace
+- **Environments** - Associated environments
+- **Created/Updated** - Timestamps
+
+## Workspace Features
+
+### Collaboration
+- **Shared Designs** - Team members collaborate on infrastructure designs
+- **Access Control** - Workspace-level permissions and roles
+- **Activity Feed** - Track changes and updates
+- **Comments** - Discuss designs and deployments
+
+### Resource Organization
+- **Design Library** - Organize and categorize designs
+- **Environment Association** - Link workspaces to environments
+- **Connection Management** - Shared cluster connections
+- **Version Control** - Track design iterations
+
+### Team Management
+- **Member Invitations** - Add team members to workspace
+- **Role Assignment** - Define member permissions
+- **Activity Tracking** - Monitor team activity
+- **Notifications** - Workspace event notifications
+
+## Best Practices
+
+### Naming Conventions
+
+```bash
+# Use clear, descriptive names
+mesheryctl workspace create --orgID org-123 --name microservices-platform
+mesheryctl workspace create --orgID org-123 --name data-infrastructure
+
+# Include team or project identifier
+mesheryctl workspace create --orgID org-123 --name team-payments
+mesheryctl workspace create --orgID org-123 --name project-migration
+```
+
+### Workspace Structure
+
+- One workspace per team or project
+- Align workspaces with organizational structure
+- Use workspaces to isolate different concerns
+- Create shared workspaces for common resources
+
+### Access Management
+
+- Define clear ownership per workspace
+- Assign appropriate roles to members
+- Regularly review workspace membership
+- Use workspaces to enforce least privilege
+
+## Workflow
+
+1. **Create Organization** - Set up parent organization
+2. **Create Workspaces** - Define team workspaces
+3. **Add Members** - Invite team members (via UI)
+4. **Create Designs** - Build infrastructure designs
+5. **Collaborate** - Work together on designs
+6. **Deploy** - Deploy designs to environments
+
+## Integration with Other Commands
+
+### With Environments
+
+```bash
+# Create workspace
+mesheryctl workspace create --orgID org-123 --name dev-team
+
+# Create environment
+mesheryctl environment create --orgID org-123 --name development
+
+# Associate workspace with environment (via UI or API)
+```
+
+### With Designs
+
+```bash
+# Create workspace
+mesheryctl workspace create --orgID org-123 --name platform-team
+
+# Create design in workspace context (via UI)
+# Design is automatically associated with workspace
+```
+
+### With Connections
+
+```bash
+# Create workspace for team
+mesheryctl workspace create --orgID org-123 --name backend-team
+
+# Add connections that workspace can use
+mesheryctl connection create --type kubernetes
+```
+
+## Workspace Permissions
+
+Workspaces support role-based access:
+
+- **Owner** - Full workspace control
+- **Admin** - Manage workspace and members
+- **Editor** - Create and modify designs
+- **Viewer** - Read-only access
+
+<Note>
+Permissions are managed through the Meshery UI after workspace creation.
+</Note>
+
+## Troubleshooting
+
+### Workspace Creation Fails
+
+```bash
+# Verify organization ID
+mesheryctl org list
+
+# Check authentication
+mesheryctl system login
+
+# Verify permissions
+# Ensure you can create workspaces in the organization
+```
+
+### Cannot List Workspaces
+
+```bash
+# Verify organization ID
+mesheryctl workspace list --orgID org-123
+
+# Check if organization exists
+mesheryctl org list
+```
+
+### Workspace Not Visible
+
+```bash
+# List all workspaces in organization
+mesheryctl workspace list --orgID org-123
+
+# Verify you have access to the workspace
+# Check membership via Meshery UI
+```
+
+### Count Shows Zero
+
+```bash
+# Create first workspace
+mesheryctl workspace create --orgID org-123 --name initial-workspace
+
+# Verify creation
+mesheryctl workspace list --orgID org-123
+```
+
+## See Also
+
+- [Environment Command](/cli/environments) - Manage deployment environments
+- [Design Command](/cli/design) - Create and manage designs
+- [Connection Command](/cli/connections) - Manage cluster connections
+- [Organization Management](https://docs.meshery.io/concepts/logical/organizations)
+- [Workspaces Concept](https://docs.meshery.io/concepts/logical/workspaces)

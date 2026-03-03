@@ -1,0 +1,211 @@
+---
+title: Integrations Overview
+description: Explore Meshery's 300+ cloud native integrations for comprehensive infrastructure management
+---
+
+# Integrations Overview
+
+Meshery provides comprehensive support for **300+ cloud native integrations**, enabling you to manage, configure, and operate your entire infrastructure from a single platform. These integrations span service meshes, Kubernetes platforms, cloud providers, observability tools, and more.
+
+## Integration Categories
+
+Meshery's integrations are organized into the following categories:
+
+<CardGroup cols={2}>
+  <Card title="Service Meshes" icon="network-wired" href="/integrations/service-meshes">
+    Manage Istio, Linkerd, Consul, Kuma, Cilium, and more service mesh implementations
+  </Card>
+  <Card title="Kubernetes" icon="dharmachakra" href="/integrations/kubernetes">
+    Deep integration with Kubernetes for multi-cluster management and operations
+  </Card>
+  <Card title="Cloud Providers" icon="cloud" href="/integrations/cloud-providers">
+    Native support for AWS, GCP, and Azure cloud services and resources
+  </Card>
+  <Card title="Observability" icon="chart-line" href="/integrations/prometheus-grafana">
+    Connect Prometheus, Grafana, and other monitoring tools for performance insights
+  </Card>
+</CardGroup>
+
+## What Are Meshery Integrations?
+
+Meshery integrations are cloud native infrastructure components that Meshery can discover, manage, and operate. Each integration is represented as a **Meshery Model** that defines:
+
+- **Components**: The individual resources and objects (e.g., Pods, Services, VirtualServices)
+- **Relationships**: How components interact and depend on each other
+- **Policies**: Configuration validation and best practices
+- **Lifecycle Operations**: Deploy, configure, update, and delete capabilities
+
+## Key Integration Features
+
+### Visual Design and Management
+
+Use **Kanvas**, Meshery's visual designer, to:
+
+- Drag-and-drop infrastructure components onto a canvas
+- Visually configure relationships between components
+- Design complete application architectures
+- Export designs as Kubernetes manifests or Helm charts
+
+### GitOps-Ready
+
+All Meshery integrations support GitOps workflows:
+
+- Version control your infrastructure designs
+- Automate deployments via CI/CD pipelines
+- Track changes and rollback when needed
+- Collaborate with team members on infrastructure code
+
+### Multi-Cluster Support
+
+Manage integrations across multiple Kubernetes clusters:
+
+- Deploy the same design to multiple environments
+- Synchronize configurations across clusters
+- Monitor resources in real-time with MeshSync
+- Manage connections through Environments
+
+### Pattern Catalog
+
+Access pre-built design patterns from the [Meshery Catalog](https://meshery.io/catalog):
+
+- Tested and validated configurations
+- Best practices from the community
+- Quick-start templates for common use cases
+- Import and customize for your needs
+
+## How Integrations Work
+
+### Discovery
+
+Meshery automatically discovers infrastructure in your connected clusters:
+
+1. **MeshSync** continuously scans Kubernetes clusters
+2. Identifies installed operators, CRDs, and resources
+3. Maps discovered components to Meshery Models
+4. Updates the registry with available integrations
+
+### Deployment
+
+Deploy integrations through multiple methods:
+
+- **UI**: Use Meshery's web interface to select and configure components
+- **CLI**: Deploy via `mesheryctl` commands
+- **API**: Programmatic deployment via REST or GraphQL APIs
+- **Patterns**: Apply complete design patterns with one click
+
+### Management
+
+Once deployed, Meshery provides:
+
+- Real-time status monitoring
+- Configuration validation
+- Performance metrics collection
+- Relationship-aware operations
+- Policy enforcement
+
+## Integration Sources
+
+Meshery integrations are sourced from:
+
+<AccordionGroup>
+  <Accordion title="Artifact Hub">
+    Meshery imports Helm charts and operators from [Artifact Hub](https://artifacthub.io), automatically generating models for thousands of packages.
+  </Accordion>
+  <Accordion title="GitHub Repositories">
+    Official Kubernetes operators and CRDs from GitHub repositories are processed and integrated.
+  </Accordion>
+  <Accordion title="Cloud Provider APIs">
+    AWS, GCP, and Azure service definitions are converted to Kubernetes-compatible CRDs for unified management.
+  </Accordion>
+  <Accordion title="Custom Models">
+    Create your own integrations by defining custom Meshery Models in JSON or YAML format.
+  </Accordion>
+</AccordionGroup>
+
+## Popular Integrations
+
+Some of the most commonly used Meshery integrations include:
+
+### Service Meshes
+- **Istio**: Full-featured service mesh with traffic management, security, and observability
+- **Linkerd**: Lightweight, security-focused service mesh
+- **Consul**: Service networking with service discovery and configuration
+- **Kuma**: Universal service mesh built on Envoy
+- **Cilium**: eBPF-based networking, security, and observability
+
+### Cloud Services
+- **AWS EKS**: Managed Kubernetes service on AWS
+- **AWS RDS**: Managed relational database service
+- **GCP GKE**: Google Kubernetes Engine
+- **Azure AKS**: Azure Kubernetes Service
+- **Azure Storage**: Cloud storage services
+
+### Observability
+- **Prometheus**: Metrics collection and alerting
+- **Grafana**: Visualization and dashboards
+- **Jaeger**: Distributed tracing
+- **Kiali**: Service mesh observability
+
+### Platform Components
+- **Kubernetes**: Core Kubernetes resources (Pods, Services, Deployments, etc.)
+- **Helm**: Package manager for Kubernetes
+- **ArgoCD**: GitOps continuous delivery
+- **Cert-Manager**: X.509 certificate management
+
+## Getting Started
+
+<Steps>
+  <Step title="Connect Your Cluster">
+    Add a Kubernetes connection in Meshery's UI or via `mesheryctl`.
+  </Step>
+  <Step title="Discover Integrations">
+    Meshery will automatically discover installed components and available integrations.
+  </Step>
+  <Step title="Deploy Components">
+    Use the visual designer, patterns, or direct deployment to add integrations to your cluster.
+  </Step>
+  <Step title="Monitor and Manage">
+    Track the health and performance of your integrations in real-time.
+  </Step>
+</Steps>
+
+## Explore Integration Categories
+
+Dive deeper into specific integration categories:
+
+<CardGroup cols={2}>
+  <Card title="Service Mesh Integrations" icon="network-wired" href="/integrations/service-meshes">
+    Detailed guide to Istio, Linkerd, Consul, and other service mesh integrations
+  </Card>
+  <Card title="Kubernetes Integration" icon="dharmachakra" href="/integrations/kubernetes">
+    Learn how Meshery manages Kubernetes clusters and resources
+  </Card>
+  <Card title="Cloud Provider Integrations" icon="cloud" href="/integrations/cloud-providers">
+    AWS, GCP, and Azure service integrations
+  </Card>
+  <Card title="Prometheus and Grafana" icon="chart-line" href="/integrations/prometheus-grafana">
+    Set up observability with metrics and visualization tools
+  </Card>
+</CardGroup>
+
+## Integration Registry
+
+Explore the complete list of available integrations:
+
+- **Browse**: Visit [meshery.io/integrations](https://meshery.io/integrations) to see all 300+ integrations
+- **Search**: Filter by category, provider, or technology
+- **Details**: View component schemas, relationships, and documentation
+- **Import**: Add integrations directly from the registry to your Meshery instance
+
+## Contributing Integrations
+
+The Meshery community welcomes new integrations:
+
+1. Follow the [Model Generation Guide](https://docs.meshery.io/project/contributing/contributing-models)
+2. Define components and relationships using JSON schemas
+3. Test your integration in a local Meshery instance
+4. Submit a pull request to the [Meshery repository](https://github.com/meshery/meshery)
+
+<Info>
+  Meshery's extensible architecture makes it easy to add support for new cloud native technologies. Join the [Meshery Slack](https://slack.meshery.io) to get help creating custom integrations.
+</Info>

@@ -1,0 +1,600 @@
+---
+title: Team Collaboration
+description: Enable team collaboration with Meshery workspaces and shared resources
+---
+
+Meshery provides powerful collaboration features through workspaces, enabling teams to work together on infrastructure designs, share resources, and manage access across environments.
+
+## Understanding Workspaces
+
+Workspaces are collaborative spaces that group:
+
+- **Designs** - Infrastructure patterns and configurations
+- **Environments** - Cluster connections and deployment targets
+- **Team Members** - Users with different permission levels
+- **Resources** - Shared components and configurations
+
+Workspaces enable:
+- Team collaboration on designs
+- Shared access to environments
+- Role-based access control
+- Organizational separation
+
+## Workspace Architecture
+
+```
+Organization
+├── Workspace: Platform Team
+│   ├── Members: alice@example.com (admin), bob@example.com (editor)
+│   ├── Designs: kubernetes-base, monitoring-stack
+│   └── Environments: production, staging
+│
+├── Workspace: Application Team
+│   ├── Members: charlie@example.com (admin), diana@example.com (viewer)
+│   ├── Designs: web-app, api-service
+│   └── Environments: development, staging
+│
+└── Workspace: Security Team
+    ├── Members: eve@example.com (admin)
+    ├── Designs: network-policies, security-baselines
+    └── Environments: all (read-only)
+```
+
+## Creating Workspaces
+
+<Steps>
+  <Step title="Create Organization">
+    Workspaces belong to organizations:
+    
+    1. Navigate to **Settings** → **Organizations**
+    2. Click **Create Organization**
+    3. Provide:
+       - **Name**: Your organization name
+       - **Description**: Purpose and scope
+    4. Save organization
+  </Step>
+  
+  <Step title="Create Workspace">
+    **Via UI:**
+    
+    1. Navigate to **Workspaces**
+    2. Click **Create Workspace**
+    3. Configure workspace:
+       - **Name**: Descriptive name (e.g., "Platform Engineering")
+       - **Description**: Team purpose and responsibilities
+       - **Organization**: Select parent organization
+    4. Click **Create**
+    
+    **Via API:**
+    
+    ```bash
+    curl -X POST http://localhost:9081/api/workspaces \
+      -H "Content-Type: application/json" \
+      -d '{
+        "name": "Platform Engineering",
+        "description": "Infrastructure and platform services",
+        "organization_id": "<org-uuid>"
+      }'
+    ```
+  </Step>
+  
+  <Step title="Configure Workspace">
+    Set up workspace resources:
+    
+    1. **Add Environments** - Link deployment targets
+    2. **Import Designs** - Add existing patterns
+    3. **Invite Members** - Add team members
+    4. **Set Permissions** - Configure access control
+  </Step>
+</Steps>
+
+## Managing Team Members
+
+<Steps>
+  <Step title="Invite Members">
+    Add users to workspace:
+    
+    1. Open workspace settings
+    2. Navigate to **Members** tab
+    3. Click **Invite Member**
+    4. Enter email address
+    5. Select role (see roles below)
+    6. Send invitation
+    
+    Invited users receive email with access link.
+  </Step>
+  
+  <Step title="Assign Roles">
+    Workspace roles:
+    
+    <AccordionGroup>
+      <Accordion title="Admin" icon="crown">
+        **Full Control**
+        
+        - Manage workspace settings
+        - Invite/remove members
+        - Create/delete designs
+        - Deploy to all environments
+        - Modify environment associations
+      </Accordion>
+      
+      <Accordion title="Editor" icon="pen">
+        **Read/Write Access**
+        
+        - Create and modify designs
+        - Deploy to assigned environments
+        - View workspace resources
+        - Cannot manage members
+        - Cannot delete workspace
+      </Accordion>
+      
+      <Accordion title="Viewer" icon="eye">
+        **Read-Only Access**
+        
+        - View designs and configurations
+        - Browse workspace resources
+        - Cannot modify anything
+        - Cannot deploy
+        - Good for auditors, stakeholders
+      </Accordion>
+    </AccordionGroup>
+  </Step>
+  
+  <Step title="Manage Permissions">
+    Update member permissions:
+    
+    1. Open workspace **Members**
+    2. Select member
+    3. Change role via dropdown
+    4. Save changes
+    
+    Permission changes take effect immediately.
+  </Step>
+</Steps>
+
+## Sharing Designs
+
+### Creating Shared Designs
+
+<Steps>
+  <Step title="Create in Workspace Context">
+    Ensure workspace is active:
+    
+    1. Select workspace from dropdown (top navigation)
+    2. Navigate to **Designs**
+    3. Click **Create Design**
+    4. Design is automatically associated with workspace
+  </Step>
+  
+  <Step title="Design Collaboration">
+    Multiple team members can:
+    
+    - View the same design simultaneously
+    - See real-time updates
+    - Make concurrent edits (last write wins)
+    - Comment and annotate
+  </Step>
+  
+  <Step title="Import Existing Designs">
+    Add designs to workspace:
+    
+    ```bash
+    # Import and associate with workspace
+    mesheryctl design import -f infrastructure.yaml \
+      --workspace "Platform Engineering"
+    ```
+    
+    Or via UI:
+    1. Navigate to workspace **Designs**
+    2. Click **Import**
+    3. Upload file or provide URL
+  </Step>
+</Steps>
+
+### Design Access Control
+
+```yaml
+# Design with workspace association
+name: shared-infrastructure
+metadata:
+  workspace_id: "<workspace-uuid>"
+  created_by: "alice@example.com"
+  visibility: "workspace"  # or "organization", "public"
+services:
+  # ... design components
+```
+
+Visibility levels:
+- **workspace** - Only workspace members
+- **organization** - All org workspaces
+- **public** - Published to catalog
+
+## Environment Collaboration
+
+### Associating Environments
+
+<Steps>
+  <Step title="Link Environments to Workspace">
+    1. Open workspace settings
+    2. Navigate to **Environments** tab
+    3. Click **Add Environment**
+    4. Select from available environments:
+       - production
+       - staging  
+       - development
+    5. Set access level (read/write)
+    6. Save association
+  </Step>
+  
+  <Step title="Configure Environment Access">
+    Control deployment permissions:
+    
+    | Role   | Production | Staging | Development |
+    |--------|-----------|---------|-------------|
+    | Admin  | Deploy    | Deploy  | Deploy      |
+    | Editor | Review    | Deploy  | Deploy      |
+    | Viewer | View      | View    | View        |
+    
+    Customize per environment as needed.
+  </Step>
+  
+  <Step title="Multi-Environment Deployments">
+    Teams can deploy across assigned environments:
+    
+    ```bash
+    # Deploy to staging (editor access)
+    mesheryctl design apply -f app.yaml \
+      --workspace "Platform Engineering" \
+      --environment staging
+    
+    # Deploy to production (admin only)
+    mesheryctl design apply -f app.yaml \
+      --workspace "Platform Engineering" \
+      --environment production
+    ```
+  </Step>
+</Steps>
+
+## Collaborative Workflows
+
+### Design Review Process
+
+<Steps>
+  <Step title="Create Feature Design">
+    Developer creates new design:
+    
+    1. Select workspace
+    2. Create design: "feature-x-infrastructure"
+    3. Build design in canvas
+    4. Save draft
+  </Step>
+  
+  <Step title="Request Review">
+    Mark design for review:
+    
+    1. Add comment: "@reviewer Ready for review"
+    2. Change status to "Review"
+    3. Notify team members
+  </Step>
+  
+  <Step title="Review and Approve">
+    Team reviews design:
+    
+    1. Reviewer opens design
+    2. Validates against policies
+    3. Checks best practices
+    4. Adds comments or approves
+  </Step>
+  
+  <Step title="Deploy to Dev">
+    After approval:
+    
+    1. Deploy to development environment
+    2. Test functionality
+    3. Iterate if needed
+  </Step>
+  
+  <Step title="Promote to Production">
+    Admin deploys to production:
+    
+    1. Verify successful dev deployment
+    2. Run final validation
+    3. Deploy to production environment
+    4. Monitor rollout
+  </Step>
+</Steps>
+
+### Version Control Integration
+
+Integrate with Git workflows:
+
+<Steps>
+  <Step title="Export Workspace Designs">
+    ```bash
+    # Export all workspace designs
+    mkdir -p designs/
+    mesheryctl design list --workspace "Platform Engineering" | \
+      while read design; do
+        mesheryctl design view "$design" > "designs/${design}.yaml"
+      done
+    ```
+  </Step>
+  
+  <Step title="Commit to Git">
+    ```bash
+    git add designs/
+    git commit -m "Update infrastructure designs"
+    git push origin feature/new-infrastructure
+    ```
+  </Step>
+  
+  <Step title="Create Pull Request">
+    1. Open PR for team review
+    2. Team reviews changes in Git
+    3. Merge after approval
+  </Step>
+  
+  <Step title="Sync Back to Meshery">
+    ```bash
+    # Import updated designs
+    git pull
+    for file in designs/*.yaml; do
+      mesheryctl design import -f "$file" \
+        --workspace "Platform Engineering"
+    done
+    ```
+  </Step>
+</Steps>
+
+## Managing Workspace Resources
+
+### Workspace Dashboard
+
+View workspace activity:
+
+1. **Recent Designs** - Latest created/modified designs
+2. **Active Deployments** - Current deployments across environments
+3. **Team Activity** - Member actions and changes
+4. **Resource Usage** - Cluster resource consumption
+5. **Policy Violations** - Design validation issues
+
+### Resource Quotas
+
+Control workspace resource usage:
+
+```yaml
+# Workspace resource limits
+resource_quotas:
+  max_designs: 100
+  max_environments: 10
+  max_members: 50
+  max_deployments_per_day: 20
+```
+
+## Communication and Notifications
+
+### Activity Feed
+
+Workspace activity feed shows:
+
+- Design creation and modifications
+- Deployments and rollbacks
+- Member additions and removals
+- Policy violations
+- Environment changes
+
+### Notification Settings
+
+Configure notifications:
+
+<Steps>
+  <Step title="User Preferences">
+    Set personal notification preferences:
+    
+    1. Navigate to **Settings** → **Notifications**
+    2. Configure:
+       - Email notifications (on/off)
+       - In-app notifications (on/off)
+       - Notification frequency (real-time, digest)
+  </Step>
+  
+  <Step title="Workspace Alerts">
+    Subscribe to workspace events:
+    
+    - ✅ Design deployments
+    - ✅ Policy violations
+    - ✅ Environment changes
+    - ❌ Every design edit (too noisy)
+  </Step>
+  
+  <Step title="Integration Webhooks">
+    Send notifications to external systems:
+    
+    ```bash
+    # Configure Slack webhook
+    curl -X POST http://localhost:9081/api/workspaces/<id>/webhooks \
+      -H "Content-Type: application/json" \
+      -d '{
+        "url": "https://hooks.slack.com/services/xxx",
+        "events": ["deployment.success", "deployment.failure", "policy.violation"]
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Workspace Administration
+
+### Workspace Settings
+
+<Tabs>
+  <Tab title="General">
+    Basic workspace configuration:
+    
+    - **Name**: Update workspace name
+    - **Description**: Edit description
+    - **Organization**: Change parent org
+    - **Visibility**: Public/private
+  </Tab>
+  
+  <Tab title="Members">
+    Team management:
+    
+    - Invite new members
+    - Change member roles
+    - Remove members
+    - View member activity
+  </Tab>
+  
+  <Tab title="Environments">
+    Environment associations:
+    
+    - Add/remove environments
+    - Set environment permissions
+    - Configure deployment policies
+  </Tab>
+  
+  <Tab title="Policies">
+    Workspace-specific policies:
+    
+    - Enable/disable policies
+    - Set enforcement levels
+    - Create custom policies
+    - View policy results
+  </Tab>
+</Tabs>
+
+### Transferring Ownership
+
+<Steps>
+  <Step title="Promote New Admin">
+    1. Current admin opens workspace **Members**
+    2. Select new owner
+    3. Change role to **Admin**
+  </Step>
+  
+  <Step title="Transfer Resources">
+    Move designs and configurations:
+    
+    ```bash
+    # Export from old workspace
+    mesheryctl design export --workspace "Old Workspace" > designs.yaml
+    
+    # Import to new workspace
+    mesheryctl design import -f designs.yaml --workspace "New Workspace"
+    ```
+  </Step>
+  
+  <Step title="Update Member Access">
+    Adjust permissions in new workspace:
+    
+    1. Review member list
+    2. Update roles as needed
+    3. Remove departing members
+  </Step>
+</Steps>
+
+### Archiving Workspaces
+
+<Warning>
+Archiving a workspace:
+- Removes member access
+- Preserves designs (read-only)
+- Stops deployments
+- Can be restored by admins
+</Warning>
+
+```bash
+# Archive workspace
+curl -X POST http://localhost:9081/api/workspaces/<id>/archive
+
+# Restore archived workspace
+curl -X POST http://localhost:9081/api/workspaces/<id>/restore
+```
+
+## Best Practices
+
+### Workspace Organization
+
+**Team-Based Structure:**
+```
+Organization: Acme Corp
+├── Platform Team Workspace
+│   └── Base infrastructure, shared services
+├── Frontend Team Workspace
+│   └── UI applications, CDN configs
+├── Backend Team Workspace
+│   └── APIs, databases, message queues
+└── Security Team Workspace
+    └── Policies, compliance, monitoring
+```
+
+**Environment-Based Structure:**
+```
+Organization: Acme Corp
+├── Production Workspace
+│   └── Admin-only, strict policies
+├── Staging Workspace
+│   └── Team leads, mirrors production
+└── Development Workspace
+    └── All developers, experimental
+```
+
+### Access Control
+
+- **Principle of Least Privilege**: Grant minimum required access
+- **Regular Audits**: Review member access quarterly
+- **Offboarding**: Remove access immediately when members leave
+- **Service Accounts**: Use dedicated accounts for automation
+
+### Design Management
+
+- **Naming Conventions**: Use clear, consistent names
+- **Documentation**: Add descriptions to all designs
+- **Version Control**: Commit designs to Git
+- **Cleanup**: Archive unused designs
+
+### Communication
+
+- **Clear Descriptions**: Document workspace purpose
+- **Onboarding Docs**: Create workspace guides for new members
+- **Change Notifications**: Announce major changes
+- **Regular Syncs**: Hold team meetings to review workspace activity
+
+## Troubleshooting
+
+### Access Issues
+
+**Symptom**: User cannot access workspace
+
+**Solutions**:
+1. Verify user is invited and accepted invitation
+2. Check user role has required permissions
+3. Ensure workspace is not archived
+4. Verify organization membership
+
+### Design Not Visible
+
+**Symptom**: Design doesn't appear in workspace
+
+**Solutions**:
+1. Check design workspace association
+2. Verify user has viewer or higher role
+3. Ensure design is not deleted
+4. Refresh UI
+
+### Deployment Failures
+
+**Symptom**: Cannot deploy to environment
+
+**Solutions**:
+1. Verify environment is associated with workspace
+2. Check user role has deployment permissions
+3. Validate design against policies
+4. Ensure cluster connection is active
+
+## Next Steps
+
+- Set up [Multi-Cluster Management](/guides/multi-cluster-setup) for team
+- Enforce team standards with [OPA Policies](/guides/policy-engine)
+- Build shared [Design Patterns](/guides/design-patterns)
+- Integrate [Infrastructure Management](/guides/infrastructure-management) workflows

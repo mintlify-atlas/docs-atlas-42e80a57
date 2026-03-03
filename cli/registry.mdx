@@ -1,0 +1,426 @@
+---
+title: mesheryctl registry
+description: Manage the Meshery capability registry
+---
+
+The `registry` command manages the state and contents of Meshery's internal registry of capabilities, models, components, and relationships.
+
+## Synopsis
+
+```bash
+mesheryctl registry [subcommand] [flags]
+```
+
+## Subcommands
+
+- `generate` - Generate registry artifacts from source definitions
+- `publish` - Publish models and components to the registry
+- `update` - Update registry contents
+
+## generate
+
+Generate registry artifacts (models, components, relationships) from source definitions.
+
+### Usage
+
+```bash
+mesheryctl registry generate [flags]
+```
+
+### Flags
+
+<ParamField path="--spreadsheet-id" type="string">
+  Google Spreadsheet ID containing model definitions
+</ParamField>
+
+<ParamField path="--spreadsheet-cred" type="string">
+  Path to Google Spreadsheet credentials file
+</ParamField>
+
+<ParamField path="--model-name" type="string">
+  Name of the model to generate
+</ParamField>
+
+<ParamField path="--model-csv" type="string">
+  Path to CSV file containing model definitions
+</ParamField>
+
+<ParamField path="--component-csv" type="string">
+  Path to CSV file containing component definitions
+</ParamField>
+
+<ParamField path="--relationship-csv" type="string">
+  Path to CSV file containing relationship definitions
+</ParamField>
+
+<ParamField path="--output" type="string" default="./">
+  Output directory for generated artifacts. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Generate from CSV
+# Generate model from CSV files
+mesheryctl registry generate \
+  --model-csv models.csv \
+  --component-csv components.csv \
+  --relationship-csv relationships.csv \
+  -o ./output
+```
+
+```bash Generate from Spreadsheet
+# Generate from Google Spreadsheet
+mesheryctl registry generate \
+  --spreadsheet-id 1a2b3c4d5e6f \
+  --spreadsheet-cred ./creds.json \
+  --model-name MyModel \
+  -o ./registry
+```
+
+```bash Generate Specific Model
+# Generate single model
+mesheryctl registry generate \
+  --model-name Kubernetes \
+  --model-csv k8s-model.csv \
+  -o ./k8s
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Generating registry artifacts...
+Processing model definitions...
+Processing components: 150
+Processing relationships: 45
+
+Generated:
+  Models: 1
+  Components: 150
+  Relationships: 45
+  
+Output directory: ./output
+```
+
+## publish
+
+Publish generated models, components, and relationships to the registry or external systems.
+
+### Usage
+
+```bash
+mesheryctl registry publish [flags]
+```
+
+### Flags
+
+<ParamField path="--source" type="string" required>
+  Source directory containing registry artifacts
+</ParamField>
+
+<ParamField path="--target" type="string" default="local">
+  Publish target: `local`, `remote`, `website`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Publish to Local Registry
+# Publish artifacts to local Meshery instance
+mesheryctl registry publish --source ./registry-artifacts --target local
+```
+
+```bash Publish to Remote
+# Publish to remote provider
+mesheryctl registry publish --source ./artifacts --target remote
+```
+
+```bash Publish to Website
+# Publish documentation to website
+mesheryctl registry publish --source ./docs --target website
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Publishing registry artifacts...
+Target: local
+Source: ./registry-artifacts
+
+Publishing models: 1
+Publishing components: 150
+Publishing relationships: 45
+
+Publish completed successfully
+```
+
+## update
+
+Update registry contents with latest definitions.
+
+### Usage
+
+```bash
+mesheryctl registry update [flags]
+```
+
+### Examples
+
+```bash
+# Update local registry
+mesheryctl registry update
+
+# Update from specific source
+mesheryctl registry update --source ./new-definitions
+```
+
+### Sample Output
+
+```
+Updating registry...
+Fetching latest definitions...
+Updating models: 5 updated, 2 new
+Updating components: 25 updated, 10 new
+Updating relationships: 8 updated, 3 new
+
+Registry updated successfully
+```
+
+## Registry Structure
+
+The Meshery registry contains:
+
+### Models
+- Infrastructure platform definitions (Kubernetes, Istio, etc.)
+- Version information
+- Category classification
+- Metadata and documentation
+
+### Components
+- Individual resource types within models
+- JSON schemas for validation
+- Default configurations
+- Capability definitions
+
+### Relationships
+- Inter-component connections
+- Relationship types and subtypes
+- Selector definitions
+- Validation rules
+
+## CSV File Format
+
+### Model CSV
+
+```csv
+modelDisplayName,model,category,subCategory,description,version
+Kubernetes,kubernetes,Orchestration,Container,Kubernetes orchestration,v1.28.0
+```
+
+### Component CSV
+
+```csv
+component,model,version,kind,schema,documentation
+Pod,kubernetes,v1,Pod,{...schema...},Pod documentation
+```
+
+### Relationship CSV
+
+```csv
+kind,type,subtype,model,from,to,selector
+Pod-Service,edge,network,kubernetes,Pod,Service,{...selector...}
+```
+
+## Use Cases
+
+### Generate Custom Model
+
+```bash
+# Create CSV files for your model
+# models.csv, components.csv, relationships.csv
+
+# Generate artifacts
+mesheryctl registry generate \
+  --model-csv models.csv \
+  --component-csv components.csv \
+  --relationship-csv relationships.csv \
+  -o ./my-model
+
+# Publish to registry
+mesheryctl registry publish --source ./my-model
+```
+
+### Update Existing Model
+
+```bash
+# Generate updated definitions
+mesheryctl registry generate \
+  --model-name ExistingModel \
+  --model-csv updated-model.csv \
+  -o ./updates
+
+# Publish updates
+mesheryctl registry publish --source ./updates
+```
+
+### Bulk Model Import
+
+```bash
+# Generate multiple models
+for csv in models/*.csv; do
+  mesheryctl registry generate --model-csv $csv -o ./registry
+done
+
+# Publish all at once
+mesheryctl registry publish --source ./registry
+```
+
+### Registry Synchronization
+
+```bash
+# Fetch latest definitions from source control
+git pull origin main
+
+# Regenerate artifacts
+mesheryctl registry generate --model-csv ./definitions/models.csv -o ./artifacts
+
+# Update local registry
+mesheryctl registry publish --source ./artifacts --target local
+```
+
+## Registry Workflow
+
+1. **Define** - Create model/component definitions in CSV or spreadsheet
+2. **Generate** - Generate registry artifacts with `registry generate`
+3. **Validate** - Review generated files for correctness
+4. **Publish** - Publish to registry with `registry publish`
+5. **Update** - Update existing definitions as needed
+6. **Distribute** - Share with team or publish to Meshery Catalog
+
+## Best Practices
+
+### Definition Management
+- Version control CSV files in Git
+- Use semantic versioning for models
+- Document all components thoroughly
+- Validate CSV format before generation
+
+### Generation Process
+- Generate to temporary directory first
+- Review artifacts before publishing
+- Test generated models in development
+- Maintain changelog for model updates
+
+### Publishing Strategy
+- Publish to local registry for testing
+- Validate functionality before remote publish
+- Coordinate with team on registry updates
+- Backup registry before major updates
+
+## Troubleshooting
+
+### Generation Fails
+
+```bash
+# Validate CSV format
+head -n 5 models.csv
+
+# Check for missing required fields
+# Ensure all columns are present
+
+# Verify file encoding (UTF-8)
+file models.csv
+```
+
+### Spreadsheet Access Error
+
+```bash
+# Verify credentials file exists
+ls -la ./creds.json
+
+# Check credentials format
+cat ./creds.json | jq .
+
+# Ensure spreadsheet ID is correct
+# ID is in URL: https://docs.google.com/spreadsheets/d/{ID}/edit
+```
+
+### Publish Fails
+
+```bash
+# Verify artifacts directory structure
+ls -R ./registry-artifacts
+
+# Check Meshery server is running
+mesheryctl system status
+
+# Verify authentication
+mesheryctl system login
+```
+
+### Schema Validation Errors
+
+```bash
+# Check component schema syntax
+cat component.json | jq .
+
+# Validate against JSON Schema spec
+# Use online validator or CLI tool
+
+# Review error messages for specific issues
+```
+
+## Advanced Usage
+
+### Automated Registry Updates
+
+```bash
+#!/bin/bash
+# Script to automate registry updates
+
+cd /path/to/definitions
+git pull
+
+mesheryctl registry generate \
+  --model-csv models.csv \
+  --component-csv components.csv \
+  --relationship-csv relationships.csv \
+  -o ./artifacts
+
+mesheryctl registry publish --source ./artifacts --target local
+
+echo "Registry updated successfully"
+```
+
+### CI/CD Integration
+
+```yaml
+# GitHub Actions example
+name: Update Registry
+on:
+  push:
+    paths:
+      - 'definitions/**'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Generate artifacts
+        run: |
+          mesheryctl registry generate \
+            --model-csv definitions/models.csv \
+            -o artifacts
+      - name: Publish
+        run: mesheryctl registry publish --source artifacts
+```
+
+## See Also
+
+- [Model Command](/cli/model) - Manage models
+- [Component Command](/cli/components) - Manage components
+- [Relationship Command](/cli/relationships) - Manage relationships
+- [Meshery Registry Concept](https://docs.meshery.io/concepts/logical/registry)

@@ -1,0 +1,434 @@
+---
+title: mesheryctl relationship
+description: Manage component relationships in Meshery
+---
+
+The `relationship` command manages relationships between components, defining how infrastructure components interact and depend on each other.
+
+## Synopsis
+
+```bash
+mesheryctl relationship [subcommand] [flags]
+```
+
+## Subcommands
+
+- `list` - List all available relationships
+- `view` - View relationship details
+- `search` - Search for relationships
+- `generate` - Generate relationship documentation
+
+## Global Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display total count of relationships. Short form: `-c`
+</ParamField>
+
+## list
+
+List all available component relationships.
+
+### Usage
+
+```bash
+mesheryctl relationship list [flags]
+```
+
+### Flags
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of relationships per page
+</ParamField>
+
+<ParamField path="--count" type="boolean" default="false">
+  Display only the count of relationships
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Relationships
+# List all relationships
+mesheryctl relationship list
+
+# Get relationship count
+mesheryctl relationship list --count
+```
+
+```bash Pagination
+# List first page
+mesheryctl relationship list --page 1 --page-size 50
+
+# List next page
+mesheryctl relationship list --page 2
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+KIND               TYPE              SUBTYPE           MODEL
+Pod-Service        edge              network           Kubernetes
+Deployment-Pod     hierarchical      parent            Kubernetes
+VirtualService     edge              traffic           Istio
+ConfigMap-Pod      edge              mount             Kubernetes
+
+Total: 450 relationships
+```
+
+## view
+
+Display detailed information about a relationship.
+
+### Usage
+
+```bash
+mesheryctl relationship view [relationship-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="yaml">
+  Output format: `yaml`, `json`. Short form: `-o`
+</ParamField>
+
+<ParamField path="--model" type="string">
+  Filter by model name
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash View Relationship
+# View relationship in YAML
+mesheryctl relationship view Pod-Service
+
+# View in JSON format
+mesheryctl relationship view Deployment-Pod -o json
+```
+
+```bash Filter by Model
+# View relationships from specific model
+mesheryctl relationship view --model Kubernetes
+```
+</CodeGroup>
+
+### Sample Output
+
+```yaml
+kind: Pod-Service
+type: edge
+subtype: network
+model:
+  name: Kubernetes
+  version: v1.28.0
+selectors:
+  - from:
+      kind: Pod
+      match:
+        labels: true
+    to:
+      kind: Service
+      match:
+        selector: true
+metadata:
+  description: Service routes traffic to Pods based on label selectors
+  published: true
+```
+
+## search
+
+Search for relationships by kind, type, subtype, or model.
+
+### Usage
+
+```bash
+mesheryctl relationship search [flags]
+```
+
+### Flags
+
+<ParamField path="--kind" type="string">
+  Filter by relationship kind
+</ParamField>
+
+<ParamField path="--type" type="string">
+  Filter by relationship type (edge, hierarchical, sibling)
+</ParamField>
+
+<ParamField path="--subtype" type="string">
+  Filter by relationship subtype
+</ParamField>
+
+<ParamField path="--model" type="string">
+  Filter by model name
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Search by Type
+# Search edge relationships
+mesheryctl relationship search --type edge
+
+# Search hierarchical relationships
+mesheryctl relationship search --type hierarchical
+```
+
+```bash Search by Model
+# Search Kubernetes relationships
+mesheryctl relationship search --model Kubernetes
+
+# Search Istio relationships
+mesheryctl relationship search --model Istio
+```
+
+```bash Advanced Search
+# Combine multiple filters
+mesheryctl relationship search --type edge --subtype network --model Kubernetes
+
+# Search by kind
+mesheryctl relationship search --kind Pod-Service
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+KIND                    TYPE         SUBTYPE      MODEL
+Pod-Service             edge         network      Kubernetes
+Pod-ConfigMap           edge         mount        Kubernetes
+Pod-Secret              edge         mount        Kubernetes
+
+Found: 3 relationships
+```
+
+## generate
+
+Generate relationship documentation.
+
+### Usage
+
+```bash
+mesheryctl relationship generate [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="./">
+  Output directory for generated documentation. Short form: `-o`
+</ParamField>
+
+<ParamField path="--model" type="string">
+  Generate documentation for specific model
+</ParamField>
+
+### Examples
+
+```bash
+# Generate all relationship documentation
+mesheryctl relationship generate -o ./docs
+
+# Generate for specific model
+mesheryctl relationship generate --model Kubernetes -o ./k8s-docs
+```
+
+## Count Relationships
+
+Display the total number of registered relationships.
+
+### Usage
+
+```bash
+mesheryctl relationship --count
+```
+
+### Example Output
+
+```
+Total relationships: 450
+```
+
+## Relationship Types
+
+Meshery supports several relationship types:
+
+### Edge Relationships
+
+Define connections between components:
+
+- **network** - Network connectivity (Service → Pod)
+- **mount** - Volume or config mounting (ConfigMap → Pod)
+- **traffic** - Traffic routing (VirtualService → Service)
+- **firewall** - Network policy (NetworkPolicy → Pod)
+- **permission** - RBAC relationships (Role → ServiceAccount)
+
+### Hierarchical Relationships
+
+Define parent-child relationships:
+
+- **parent** - Owner reference (Deployment → Pod)
+- **inventory** - Resource grouping (Namespace → Resources)
+
+### Sibling Relationships
+
+Define peer relationships:
+
+- **binding** - Resource binding (PersistentVolumeClaim ↔ PersistentVolume)
+
+## Relationship Properties
+
+Relationships include:
+
+### Identifiers
+- **Kind** - Unique relationship identifier
+- **Type** - Relationship category (edge, hierarchical, sibling)
+- **Subtype** - Specific relationship purpose
+
+### Selectors
+- **From** - Source component definition
+- **To** - Target component definition
+- **Match** - Matching criteria (labels, annotations, etc.)
+
+### Metadata
+- **Model** - Parent model
+- **Version** - Relationship version
+- **Description** - Relationship purpose
+- **Published** - Registry status
+
+## Use Cases
+
+### Understand Component Dependencies
+
+```bash
+# Find all Pod relationships
+mesheryctl relationship search --kind Pod
+
+# View specific relationship details
+mesheryctl relationship view Pod-Service
+```
+
+### Explore Service Mesh Relationships
+
+```bash
+# List Istio relationships
+mesheryctl relationship search --model Istio
+
+# View traffic management relationships
+mesheryctl relationship search --subtype traffic --model Istio
+```
+
+### Document Infrastructure Patterns
+
+```bash
+# Generate relationship documentation
+mesheryctl relationship generate -o ./infrastructure-docs
+
+# Generate for specific model
+mesheryctl relationship generate --model Kubernetes -o ./k8s-patterns
+```
+
+## Relationship Examples
+
+### Pod to Service (Edge/Network)
+
+```yaml
+kind: Pod-Service
+type: edge
+subtype: network
+selectors:
+  - from:
+      kind: Pod
+      match:
+        labels:
+          app: my-app
+    to:
+      kind: Service
+      match:
+        selector:
+          app: my-app
+metadata:
+  description: Service selects and routes traffic to Pods with matching labels
+```
+
+### Deployment to Pod (Hierarchical/Parent)
+
+```yaml
+kind: Deployment-Pod
+type: hierarchical
+subtype: parent
+selectors:
+  - from:
+      kind: Deployment
+    to:
+      kind: Pod
+      match:
+        owner: true
+metadata:
+  description: Deployment manages the lifecycle of Pods via ReplicaSet
+```
+
+### ConfigMap to Pod (Edge/Mount)
+
+```yaml
+kind: ConfigMap-Pod
+type: edge
+subtype: mount
+selectors:
+  - from:
+      kind: ConfigMap
+    to:
+      kind: Pod
+      match:
+        volumes: true
+metadata:
+  description: ConfigMap data is mounted into Pod as files or environment variables
+```
+
+## Troubleshooting
+
+### Relationship Not Found
+
+```bash
+# List all available relationships
+mesheryctl relationship list
+
+# Search with filters
+mesheryctl relationship search --model MyModel
+
+# Check specific relationship kind
+mesheryctl relationship search --kind MyRelationship
+```
+
+### Understanding Relationship Types
+
+```bash
+# List all edge relationships
+mesheryctl relationship search --type edge
+
+# List all hierarchical relationships
+mesheryctl relationship search --type hierarchical
+
+# View relationship details
+mesheryctl relationship view RelationshipName -o yaml
+```
+
+### Filter Results
+
+```bash
+# Combine multiple filters
+mesheryctl relationship search --type edge --model Kubernetes
+
+# Use pagination for large result sets
+mesheryctl relationship list --page-size 100
+```
+
+## See Also
+
+- [Model Command](/cli/model) - Manage infrastructure models
+- [Component Command](/cli/components) - Manage components
+- [Design Command](/cli/design) - Use relationships in designs

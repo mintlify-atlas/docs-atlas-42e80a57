@@ -1,0 +1,613 @@
+---
+title: CLI Development
+description: Contribute to mesheryctl, the command-line tool for managing Meshery installations and operations.
+---
+
+mesheryctl is Meshery's command-line interface, built with Go and the Cobra framework. It provides commands for installation, lifecycle management, pattern deployment, system validation, and more.
+
+## Architecture Overview
+
+mesheryctl is a standalone Go application that communicates with:
+
+- **Meshery Server APIs** – REST and GraphQL endpoints
+- **Docker** – For local container management
+- **Kubernetes** – For cluster deployments and management
+- **Local filesystem** – For configuration and context management
+
+## Repository Structure
+
+The CLI code is located in the `/mesheryctl` directory:
+
+```
+mesheryctl/
+├── cmd/                 # Command definitions
+│   ├── root.go         # Root command and global flags
+│   ├── system/         # System lifecycle commands
+│   ├── pattern/        # Pattern management commands
+│   ├── app/            # Application management commands
+│   └── mesh/           # Service mesh commands
+├── internal/           # Internal packages
+│   ├── cli/           # CLI utilities
+│   └── config/        # Configuration management
+├── pkg/                # Public packages
+│   └── utils/         # Utility functions
+└── Makefile            # Build automation
+```
+
+## Development Workflow
+
+### Building mesheryctl
+
+**Build the binary:**
+
+```bash
+cd mesheryctl
+make
+```
+
+This creates the `mesheryctl` binary in the `mesheryctl/` directory.
+
+**Verify the build:**
+
+```bash
+./mesheryctl version
+```
+
+**Install globally (optional):**
+
+```bash
+sudo cp mesheryctl /usr/local/bin/
+mesheryctl version
+```
+
+### Running mesheryctl
+
+**Basic commands:**
+
+```bash
+# Show version
+./mesheryctl version
+
+# Show help
+./mesheryctl --help
+
+# Start Meshery
+./mesheryctl system start
+
+# Check system status
+./mesheryctl system status
+
+# Stop Meshery
+./mesheryctl system stop
+```
+
+### Project Structure
+
+mesheryctl follows the Cobra framework structure:
+
+**Root command:** `mesheryctl/cmd/root.go`
+
+```go
+var RootCmd = &cobra.Command{
+    Use:   "mesheryctl",
+    Short: "Meshery Command Line tool",
+    Long:  `Meshery is the cloud native manager`,
+}
+```
+
+**Subcommands:** Organized in subdirectories (e.g., `cmd/system/`, `cmd/pattern/`)
+
+## Code Style and Best Practices
+
+### Go Code Style
+
+Follow the same Go code style as the Meshery Server:
+
+- Use `gofmt` and `goimports` for formatting
+- Follow Go naming conventions
+- Use meaningful variable and function names
+- Add comments for exported functions
+
+### Command Structure
+
+Each command follows this structure:
+
+```go
+var myCmd = &cobra.Command{
+    Use:   "mycommand",
+    Short: "Short description",
+    Long:  `Long description with usage examples`,
+    Args:  cobra.MinimumNArgs(0),
+    RunE: func(cmd *cobra.Command, args []string) error {
+        // Command implementation
+        return nil
+    },
+}
+
+func init() {
+    // Add flags
+    myCmd.Flags().StringP("flag", "f", "default", "flag description")
+    
+    // Register command
+    ParentCmd.AddCommand(myCmd)
+}
+```
+
+### Error Handling
+
+Use descriptive error messages:
+
+```go
+if err != nil {
+    return errors.Wrap(err, "failed to start Meshery")
+}
+```
+
+### Output Formatting
+
+Support multiple output formats:
+
+```go
+import (
+    "encoding/json"
+    "fmt"
+    "gopkg.in/yaml.v2"
+)
+
+func formatOutput(data interface{}, format string) error {
+    switch format {
+    case "json":
+        return json.NewEncoder(os.Stdout).Encode(data)
+    case "yaml":
+        return yaml.NewEncoder(os.Stdout).Encode(data)
+    default:
+        fmt.Println(data)
+        return nil
+    }
+}
+```
+
+## Testing
+
+### Unit Tests
+
+**Run unit tests:**
+
+```bash
+cd mesheryctl
+go test --short ./...
+```
+
+**Run specific package:**
+
+```bash
+go test ./cmd/system/
+```
+
+**Run with coverage:**
+
+```bash
+go test -cover ./...
+```
+
+### Integration Tests
+
+**Run integration tests:**
+
+```bash
+cd mesheryctl
+go test -run Integration ./...
+```
+
+**Full test suite:**
+
+```bash
+make mesheryctl-tests-int
+```
+
+### Writing Tests
+
+**Example unit test:**
+
+```go
+// cmd/system/start_test.go
+func TestStartCommand(t *testing.T) {
+    tests := []struct {
+        name    string
+        args    []string
+        wantErr bool
+    }{
+        {
+            name:    "valid start",
+            args:    []string{},
+            wantErr: false,
+        },
+        {
+            name:    "invalid platform",
+            args:    []string{"--platform", "invalid"},
+            wantErr: true,
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            cmd := StartCmd
+            cmd.SetArgs(tt.args)
+            err := cmd.Execute()
+            if (err != nil) != tt.wantErr {
+                t.Errorf("StartCmd error = %v, wantErr %v", err, tt.wantErr)
+            }
+        })
+    }
+}
+```
+
+## Common Tasks
+
+### Adding a New Command
+
+1. **Create command file:**
+
+```go
+// cmd/workspace/list.go
+package workspace
+
+import (
+    "fmt"
+    "github.com/spf13/cobra"
+)
+
+var listCmd = &cobra.Command{
+    Use:   "list",
+    Short: "List all workspaces",
+    Long:  `Display a list of all available workspaces`,
+    RunE: func(cmd *cobra.Command, args []string) error {
+        // Fetch workspaces from API
+        workspaces, err := getWorkspaces()
+        if err != nil {
+            return err
+        }
+
+        // Display workspaces
+        for _, ws := range workspaces {
+            fmt.Printf("%s\t%s\n", ws.ID, ws.Name)
+        }
+        return nil
+    },
+}
+
+func init() {
+    // Add flags if needed
+    listCmd.Flags().StringP("output", "o", "table", "output format (table|json|yaml)")
+}
+```
+
+2. **Register command:**
+
+```go
+// cmd/workspace/workspace.go
+package workspace
+
+import (
+    "github.com/spf13/cobra"
+)
+
+var WorkspaceCmd = &cobra.Command{
+    Use:   "workspace",
+    Short: "Workspace management",
+    Long:  `Manage Meshery workspaces`,
+}
+
+func init() {
+    WorkspaceCmd.AddCommand(listCmd)
+    WorkspaceCmd.AddCommand(createCmd)
+    WorkspaceCmd.AddCommand(deleteCmd)
+}
+```
+
+3. **Add to root command:**
+
+```go
+// cmd/root.go
+import (
+    "github.com/meshery/meshery/mesheryctl/cmd/workspace"
+)
+
+func init() {
+    RootCmd.AddCommand(workspace.WorkspaceCmd)
+}
+```
+
+### Adding Command Flags
+
+**String flag:**
+
+```go
+cmd.Flags().StringP("name", "n", "", "workspace name")
+```
+
+**Boolean flag:**
+
+```go
+cmd.Flags().BoolP("verbose", "v", false, "verbose output")
+```
+
+**Required flag:**
+
+```go
+cmd.MarkFlagRequired("name")
+```
+
+**Access flag value:**
+
+```go
+name, _ := cmd.Flags().GetString("name")
+verbose, _ := cmd.Flags().GetBool("verbose")
+```
+
+### Making API Calls
+
+**REST API call with HTTP client:**
+
+```go
+import (
+    "encoding/json"
+    "net/http"
+)
+
+func getWorkspaces() ([]Workspace, error) {
+    client := &http.Client{}
+    
+    // Get Meshery endpoint from config
+    endpoint := viper.GetString("endpoint")
+    url := fmt.Sprintf("%s/api/workspaces", endpoint)
+    
+    req, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Add authentication token
+    token := viper.GetString("token")
+    req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+    
+    resp, err := client.Do(req)
+    if err != nil {
+        return nil, err
+    }
+    defer resp.Body.Close()
+    
+    var workspaces []Workspace
+    if err := json.NewDecoder(resp.Body).Decode(&workspaces); err != nil {
+        return nil, err
+    }
+    
+    return workspaces, nil
+}
+```
+
+### Configuration Management
+
+mesheryctl uses Viper for configuration management.
+
+**Read configuration:**
+
+```go
+import "github.com/spf13/viper"
+
+endpoint := viper.GetString("endpoint")
+token := viper.GetString("token")
+```
+
+**Set configuration:**
+
+```go
+viper.Set("endpoint", "http://localhost:9081")
+viper.WriteConfig()
+```
+
+**Configuration file location:**
+
+```
+~/.meshery/config.yaml
+```
+
+### Working with Contexts
+
+mesheryctl supports multiple contexts (similar to kubectl).
+
+**List contexts:**
+
+```bash
+mesheryctl system context list
+```
+
+**Switch context:**
+
+```bash
+mesheryctl system context switch <context-name>
+```
+
+**Create context:**
+
+```bash
+mesheryctl system context create <context-name> --url http://localhost:9081
+```
+
+## Documentation
+
+### Generating CLI Documentation
+
+mesheryctl can auto-generate markdown documentation from command definitions.
+
+**Generate docs:**
+
+```bash
+make docs-mesheryctl
+```
+
+This generates markdown files in the `docs/` directory.
+
+### Command Documentation Format
+
+Ensure commands have proper documentation:
+
+```go
+var myCmd = &cobra.Command{
+    Use:   "mycommand [flags]",
+    Short: "One-line description (< 60 chars)",
+    Long: `Detailed description with usage examples:
+
+  mesheryctl mycommand --flag value
+  mesheryctl mycommand --another-flag
+
+This command does something useful and here's how to use it.`,
+    Example: `  # Example 1
+  mesheryctl mycommand --flag value
+
+  # Example 2
+  mesheryctl mycommand --another-flag`,
+}
+```
+
+## Integration with Meshery Server
+
+### API Endpoints
+
+mesheryctl communicates with these Meshery Server endpoints:
+
+- `GET /api/system/version` – Get server version
+- `GET /api/workspaces` – List workspaces
+- `POST /api/pattern/deploy` – Deploy a pattern
+- `GET /api/mesh/adapters` – List available adapters
+
+### Authentication
+
+mesheryctl uses token-based authentication:
+
+```go
+token := viper.GetString("token")
+req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+```
+
+## Platform Support
+
+mesheryctl supports multiple deployment platforms:
+
+- **Docker** – Local container deployment
+- **Kubernetes** – Kubernetes cluster deployment
+- **Docker Compose** – Multi-container deployment
+
+**Platform selection:**
+
+```bash
+mesheryctl system start --platform docker
+mesheryctl system start --platform kubernetes
+```
+
+## Debugging
+
+### Enable Verbose Output
+
+```bash
+mesheryctl --verbose system start
+```
+
+### Debug Logging
+
+Add debug logs in code:
+
+```go
+import "github.com/sirupsen/logrus"
+
+logrus.Debug("Starting Meshery...")
+logrus.Debugf("Using endpoint: %s", endpoint)
+```
+
+### Environment Variables
+
+```bash
+export MESHERY_DEBUG=true
+mesheryctl system start
+```
+
+## Building for Release
+
+### Cross-Platform Builds
+
+**Build for multiple platforms:**
+
+```bash
+# Linux
+GOOS=linux GOARCH=amd64 go build -o mesheryctl-linux-amd64
+
+# macOS
+GOOS=darwin GOARCH=amd64 go build -o mesheryctl-darwin-amd64
+GOOS=darwin GOARCH=arm64 go build -o mesheryctl-darwin-arm64
+
+# Windows
+GOOS=windows GOARCH=amd64 go build -o mesheryctl-windows-amd64.exe
+```
+
+### Version Information
+
+Version information is set during build:
+
+```bash
+go build -ldflags="-X main.version=v0.7.0 -X main.commitsha=abc123"
+```
+
+## Common Commands Reference
+
+### System Commands
+
+```bash
+mesheryctl system start          # Start Meshery
+mesheryctl system stop           # Stop Meshery
+mesheryctl system status         # Check status
+mesheryctl system restart        # Restart Meshery
+mesheryctl system reset          # Reset Meshery
+mesheryctl system logs           # View logs
+```
+
+### Pattern Commands
+
+```bash
+mesheryctl pattern list          # List patterns
+mesheryctl pattern view <name>   # View pattern details
+mesheryctl pattern apply <file>  # Apply a pattern
+mesheryctl pattern delete <name> # Delete a pattern
+```
+
+### Mesh Commands
+
+```bash
+mesheryctl mesh list             # List service meshes
+mesheryctl mesh deploy <name>    # Deploy a mesh
+mesheryctl mesh remove <name>    # Remove a mesh
+```
+
+### App Commands
+
+```bash
+mesheryctl app list              # List applications
+mesheryctl app onboard <file>    # Onboard an app
+mesheryctl app offboard <name>   # Offboard an app
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="vial" href="/contributing/testing">
+    Learn how to test CLI changes
+  </Card>
+  <Card title="Code Style" icon="code" href="/contributing/code-style">
+    Review Go code style guidelines
+  </Card>
+  <Card title="Server Development" icon="server" href="/contributing/server">
+    Contribute to the backend
+  </Card>
+  <Card title="UI Development" icon="palette" href="/contributing/ui">
+    Contribute to the frontend
+  </Card>
+</CardGroup>

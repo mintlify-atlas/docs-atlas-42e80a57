@@ -1,0 +1,723 @@
+---
+title: OPA Policy Engine
+description: Enforce governance and compliance with Open Policy Agent policies in Meshery
+---
+
+Meshery integrates Open Policy Agent (OPA) for policy-based governance of your infrastructure designs and deployments. This guide covers creating, applying, and managing OPA policies for cloud native infrastructure.
+
+## Overview
+
+The Meshery Policy Engine enables:
+
+- **Design Validation** - Ensure designs meet organizational standards
+- **Relationship Enforcement** - Validate component relationships and dependencies
+- **Compliance Checking** - Verify regulatory and security requirements
+- **Best Practices** - Enforce cloud native best practices
+- **Custom Rules** - Define organization-specific policies
+
+Policies are written in Rego, OPA's policy language, and evaluated against infrastructure designs before and during deployment.
+
+## Understanding OPA in Meshery
+
+### Policy Evaluation Flow
+
+```
+┌─────────────────┐
+│  Design File    │
+│  (YAML/JSON)    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Meshery Server  │
+│ Loads Design    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐       ┌──────────────┐
+│  OPA Engine     │◄──────│ Rego Policies│
+│  Evaluates      │       │ (.rego files)│
+└────────┬────────┘       └──────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Policy Result   │
+│ Allow/Deny      │
+│ + Violations    │
+└─────────────────┘
+```
+
+### Policy Types in Meshery
+
+1. **Relationship Policies** - Validate component relationships (hierarchical, network, binding)
+2. **Security Policies** - Enforce security constraints (RBAC, network policies, secrets)
+3. **Resource Policies** - Validate resource limits, quotas, and sizing
+4. **Naming Policies** - Enforce naming conventions and label requirements
+5. **Compliance Policies** - Ensure regulatory compliance (PCI, HIPAA, SOC2)
+
+## Writing Rego Policies
+
+### Basic Policy Structure
+
+A Meshery policy file:
+
+```rego
+package meshery.designs.security
+
+import rego.v1
+
+# Policy metadata
+metadata := {
+  "name": "require-resource-limits",
+  "description": "Ensures all containers have resource limits",
+  "severity": "high"
+}
+
+# Violation rule
+violation[{"msg": msg, "details": details}] {
+  # Find containers without resource limits
+  some service in input.services
+  service.type == "Deployment"
+  container := service.settings.spec.template.spec.containers[_]
+  
+  # Check if limits are missing
+  not container.resources.limits
+  
+  # Build violation message
+  msg := sprintf("Container '%s' in deployment '%s' missing resource limits", 
+                 [container.name, service.metadata.name])
+  details := {
+    "service": service.metadata.name,
+    "container": container.name,
+    "namespace": service.namespace
+  }
+}
+```
+
+### Example: Namespace Relationship Policy
+
+The included namespace discovery policy:
+
+```rego
+# From: policies/wasm/policies/namespace_discovery_relationship_policy/
+package hierarchical_policy
+
+import rego.v1
+
+# Collect all unique namespaces from services
+available_namespaces contains service.namespace if {
+  some service in input.services
+}
+
+available_namespaces contains service.name if {
+  some service in input.services
+  service.type == "Namespace"
+}
+
+# Map namespaces to their child components
+parent_child_mapping[namespace_map] := ns if {
+  some namespace_map in available_namespaces
+  some key, service in input.services
+  service.namespace == namespace_map
+  ns := {ns_serv: comp_id |
+    some ns_serv, x in input.services
+    x.namespace == namespace_map
+    comp_id := x.traits.meshmap.id
+  }
+}
+
+# Identify namespaces that need to be created
+namespaces_to_create contains namespace if {
+  some namespace in available_namespaces
+  not namespace_present(namespace, input.services)
+}
+
+# Helper: Check if namespace resource exists
+namespace_present(ns, all_services) if {
+  some s in all_services
+  s.type == "Namespace"
+  s.name == ns
+}
+```
+
+## Creating Custom Policies
+
+<Steps>
+  <Step title="Define Policy Requirements">
+    Identify what you want to enforce:
+    
+    - Security requirements (mTLS, network policies)
+    - Resource constraints (CPU, memory limits)
+    - Naming conventions (label requirements)
+    - Architectural patterns (sidecar injection, ingress rules)
+  </Step>
+  
+  <Step title="Write Rego Policy">
+    Create a `.rego` file:
+    
+    ```rego
+    package meshery.designs.networking
+    
+    import rego.v1
+    
+    # Ensure all Services have type LoadBalancer or ClusterIP
+    violation[{"msg": msg}] if {
+      some service in input.services
+      service.type == "Service"
+      service.model == "kubernetes"
+      
+      svc_type := service.settings.spec.type
+      not svc_type in ["LoadBalancer", "ClusterIP"]
+      
+      msg := sprintf("Service '%s' has invalid type '%s'. Must be LoadBalancer or ClusterIP",
+                     [service.metadata.name, svc_type])
+    }
+    ```
+  </Step>
+  
+  <Step title="Test Policy">
+    Test against sample designs:
+    
+    ```bash
+    # Install OPA CLI
+    curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+    chmod +x opa
+    
+    # Test policy
+    ./opa eval -d policy.rego -i design.json "data.meshery.designs.networking.violation"
+    ```
+  </Step>
+  
+  <Step title="Deploy to Meshery">
+    Add policy to Meshery:
+    
+    1. Navigate to **Policies** in Meshery UI
+    2. Click **Create Policy**
+    3. Upload `.rego` file or paste content
+    4. Set metadata (name, description, severity)
+    5. Enable policy
+  </Step>
+</Steps>
+
+## Common Policy Patterns
+
+### Security Policies
+
+<Tabs>
+  <Tab title="Require Network Policy">
+    ```rego
+    package meshery.security
+    
+    import rego.v1
+    
+    # Ensure namespace has NetworkPolicy
+    violation[{"msg": msg}] if {
+      some ns in input.services
+      ns.type == "Namespace"
+      
+      # Check if any NetworkPolicy exists for this namespace
+      namespace_name := ns.metadata.name
+      not has_network_policy(namespace_name)
+      
+      msg := sprintf("Namespace '%s' missing NetworkPolicy", [namespace_name])
+    }
+    
+    has_network_policy(ns) if {
+      some policy in input.services
+      policy.type == "NetworkPolicy"
+      policy.namespace == ns
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Enforce mTLS">
+    ```rego
+    package meshery.security
+    
+    import rego.v1
+    
+    # Require strict mTLS in Istio
+    violation[{"msg": msg}] if {
+      some auth in input.services
+      auth.type == "PeerAuthentication"
+      auth.model == "istio"
+      
+      # Check if STRICT mode is set
+      mode := auth.settings.spec.mtls.mode
+      mode != "STRICT"
+      
+      msg := sprintf("PeerAuthentication '%s' must use STRICT mTLS mode",
+                     [auth.metadata.name])
+    }
+    ```
+  </Tab>
+  
+  <Tab title="No Privileged Containers">
+    ```rego
+    package meshery.security
+    
+    import rego.v1
+    
+    violation[{"msg": msg}] if {
+      some deployment in input.services
+      deployment.type == "Deployment"
+      
+      container := deployment.settings.spec.template.spec.containers[_]
+      container.securityContext.privileged == true
+      
+      msg := sprintf("Container '%s' in '%s' runs as privileged",
+                     [container.name, deployment.metadata.name])
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Resource Policies
+
+<Tabs>
+  <Tab title="Require Resource Limits">
+    ```rego
+    package meshery.resources
+    
+    import rego.v1
+    
+    violation[{"msg": msg}] if {
+      some deployment in input.services
+      deployment.type == "Deployment"
+      
+      container := deployment.settings.spec.template.spec.containers[_]
+      
+      # Check for missing limits
+      not container.resources.limits.cpu
+      not container.resources.limits.memory
+      
+      msg := sprintf("Container '%s' missing CPU and memory limits",
+                     [container.name])
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Enforce Minimum Replicas">
+    ```rego
+    package meshery.resources
+    
+    import rego.v1
+    
+    violation[{"msg": msg}] if {
+      some deployment in input.services
+      deployment.type == "Deployment"
+      deployment.namespace == "production"
+      
+      replicas := deployment.settings.spec.replicas
+      replicas < 3
+      
+      msg := sprintf("Production deployment '%s' has only %d replicas (minimum 3)",
+                     [deployment.metadata.name, replicas])
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Limit Resource Requests">
+    ```rego
+    package meshery.resources
+    
+    import rego.v1
+    
+    # Maximum allowed CPU request
+    max_cpu := 4
+    max_memory_gb := 16
+    
+    violation[{"msg": msg}] if {
+      some deployment in input.services
+      deployment.type == "Deployment"
+      
+      container := deployment.settings.spec.template.spec.containers[_]
+      
+      # Parse CPU request (assumes format like "2" or "2000m")
+      cpu_request := to_number(trim_suffix(container.resources.requests.cpu, "m")) / 1000
+      cpu_request > max_cpu
+      
+      msg := sprintf("Container '%s' requests %vCPU (max %vCPU)",
+                     [container.name, cpu_request, max_cpu])
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Naming and Label Policies
+
+```rego
+package meshery.conventions
+
+import rego.v1
+
+# Required labels for all resources
+required_labels := ["app", "version", "environment", "owner"]
+
+violation[{"msg": msg}] if {
+  some service in input.services
+  service.type in ["Deployment", "Service", "StatefulSet"]
+  
+  # Get labels
+  labels := object.get(service.settings.metadata, "labels", {})
+  
+  # Check each required label
+  some label in required_labels
+  not labels[label]
+  
+  msg := sprintf("Resource '%s' missing required label: %s",
+                 [service.metadata.name, label])
+}
+
+# Enforce naming convention: {app}-{component}-{environment}
+violation[{"msg": msg}] if {
+  some service in input.services
+  name := service.metadata.name
+  
+  # Name must have exactly 3 parts separated by hyphens
+  parts := split(name, "-")
+  count(parts) != 3
+  
+  msg := sprintf("Resource name '%s' doesn't follow convention: {app}-{component}-{env}",
+                 [name])
+}
+```
+
+### Compliance Policies
+
+```rego
+package meshery.compliance.pci
+
+import rego.v1
+
+# PCI-DSS: Encrypt data in transit
+violation[{"msg": msg, "severity": "critical"}] if {
+  some ingress in input.services
+  ingress.type == "Ingress"
+  
+  # Check if TLS is configured
+  not ingress.settings.spec.tls
+  
+  msg := sprintf("Ingress '%s' missing TLS configuration (PCI-DSS requirement)",
+                 [ingress.metadata.name])
+}
+
+# PCI-DSS: No secrets in environment variables
+violation[{"msg": msg, "severity": "critical"}] if {
+  some deployment in input.services
+  deployment.type == "Deployment"
+  
+  container := deployment.settings.spec.template.spec.containers[_]
+  env := container.env[_]
+  
+  # Check for literal secret values (not secretKeyRef)
+  env.value
+  contains(lower(env.name), "password")
+  
+  msg := sprintf("Container '%s' has password in plaintext env var",
+                 [container.name])
+}
+```
+
+## Applying Policies
+
+### Validating Designs
+
+<Steps>
+  <Step title="Enable Policies">
+    In Meshery UI:
+    
+    1. Navigate to **Policies**
+    2. Enable desired policies
+    3. Set enforcement level:
+       - **Advisory**: Show warnings, allow deployment
+       - **Enforce**: Block deployment on violations
+  </Step>
+  
+  <Step title="Validate Design">
+    Designs are automatically validated:
+    
+    ```bash
+    # Via CLI
+    mesheryctl design validate -f my-design.yaml
+    ```
+    
+    Or in UI:
+    1. Open design in canvas
+    2. Click **Validate**
+    3. Review policy results
+  </Step>
+  
+  <Step title="Review Violations">
+    Policy violations show:
+    
+    - Policy name and severity
+    - Violation message
+    - Affected components
+    - Remediation suggestions
+    
+    Example output:
+    ```json
+    {
+      "violations": [
+        {
+          "policy": "require-resource-limits",
+          "severity": "high",
+          "msg": "Container 'nginx' missing resource limits",
+          "component": "web-deployment"
+        }
+      ]
+    }
+    ```
+  </Step>
+  
+  <Step title="Fix and Revalidate">
+    Update design to address violations:
+    
+    ```yaml
+    # Add resource limits
+    containers:
+    - name: nginx
+      image: nginx:1.21
+      resources:
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+        requests:
+          cpu: "250m"
+          memory: "256Mi"
+    ```
+    
+    Then revalidate until all violations are resolved.
+  </Step>
+</Steps>
+
+### Policy Enforcement Modes
+
+<CardGroup cols={2}>
+  <Card title="Advisory" icon="circle-info">
+    **Warnings Only**
+    
+    - Show policy violations
+    - Allow deployment anyway
+    - Use for new policies
+    - Enable gradual adoption
+  </Card>
+  
+  <Card title="Enforce" icon="shield-halved">
+    **Block Violations**
+    
+    - Prevent deployment
+    - Require remediation
+    - Use for critical policies
+    - Ensure compliance
+  </Card>
+</CardGroup>
+
+## Policy Management
+
+### Organizing Policies
+
+Structure policies by domain:
+
+```
+policies/
+├── security/
+│   ├── network-policy.rego
+│   ├── mtls-required.rego
+│   └── no-privileged.rego
+├── resources/
+│   ├── resource-limits.rego
+│   ├── min-replicas.rego
+│   └── quota-enforcement.rego
+├── compliance/
+│   ├── pci-dss.rego
+│   ├── hipaa.rego
+│   └── soc2.rego
+└── conventions/
+    ├── naming.rego
+    ├── labels.rego
+    └── annotations.rego
+```
+
+### Version Control
+
+Store policies in Git:
+
+```bash
+git add policies/
+git commit -m "Add resource limit policies"
+git push
+```
+
+### Testing Policies
+
+Create test cases:
+
+```rego
+# policy_test.rego
+package meshery.security
+
+import rego.v1
+
+test_require_network_policy_violation if {
+  # Test data: namespace without NetworkPolicy
+  input := {
+    "services": [
+      {
+        "type": "Namespace",
+        "metadata": {"name": "test-ns"}
+      }
+    ]
+  }
+  
+  # Should have violation
+  count(violation) > 0
+}
+
+test_require_network_policy_pass if {
+  # Test data: namespace with NetworkPolicy
+  input := {
+    "services": [
+      {
+        "type": "Namespace",
+        "metadata": {"name": "test-ns"}
+      },
+      {
+        "type": "NetworkPolicy",
+        "namespace": "test-ns"
+      }
+    ]
+  }
+  
+  # Should have no violations
+  count(violation) == 0
+}
+```
+
+Run tests:
+
+```bash
+opa test policies/ -v
+```
+
+## Advanced Policy Techniques
+
+### Helper Functions
+
+```rego
+package meshery.helpers
+
+import rego.v1
+
+# Check if deployment has specific label
+has_label(deployment, key, value) if {
+  deployment.settings.metadata.labels[key] == value
+}
+
+# Get all containers from deployment
+containers(deployment) := containers if {
+  containers := deployment.settings.spec.template.spec.containers
+}
+
+# Parse resource quantity (e.g., "500m", "1Gi")
+parse_resource(quantity) := value if {
+  endswith(quantity, "m")
+  value := to_number(trim_suffix(quantity, "m")) / 1000
+} else := value if {
+  value := to_number(quantity)
+}
+```
+
+### Policy Dependencies
+
+```rego
+package meshery.relationships
+
+import rego.v1
+
+# Ensure Service has corresponding Deployment
+violation[{"msg": msg}] if {
+  some service in input.services
+  service.type == "Service"
+  
+  selector := service.settings.spec.selector
+  
+  # Find matching deployment
+  not matching_deployment(selector)
+  
+  msg := sprintf("Service '%s' has no matching Deployment",
+                 [service.metadata.name])
+}
+
+matching_deployment(selector) if {
+  some deployment in input.services
+  deployment.type == "Deployment"
+  
+  # Check if labels match
+  labels := deployment.settings.spec.template.metadata.labels
+  selector == labels
+}
+```
+
+## Troubleshooting
+
+### Policy Not Evaluating
+
+**Symptom**: Policy doesn't trigger on violations
+
+**Solutions**:
+1. Check policy is enabled in UI
+2. Verify package name matches Meshery convention
+3. Test policy with OPA CLI
+4. Review input data structure
+
+### False Positives
+
+**Symptom**: Policy triggers incorrectly
+
+**Solutions**:
+1. Add debug output: `trace(sprintf("Debug: %v", [variable]))`
+2. Test with sample data
+3. Refine policy conditions
+4. Add exceptions for edge cases
+
+### Performance Issues
+
+**Symptom**: Policy evaluation is slow
+
+**Solutions**:
+1. Optimize rule conditions
+2. Use indexed lookups
+3. Avoid nested iterations
+4. Cache helper function results
+
+## Best Practices
+
+### Policy Design
+
+- **Clear Messages**: Write descriptive violation messages
+- **Actionable Feedback**: Include remediation guidance
+- **Appropriate Severity**: Use critical/high/medium/low correctly
+- **Incremental Rollout**: Start with advisory mode
+
+### Testing
+
+- **Unit Tests**: Test each policy independently
+- **Integration Tests**: Validate against real designs
+- **Edge Cases**: Test boundary conditions
+- **Regression Tests**: Prevent policy breakage
+
+### Documentation
+
+- **Policy Purpose**: Explain what and why
+- **Examples**: Show compliant and non-compliant configs
+- **Exceptions**: Document allowed exceptions
+- **Remediation**: Provide fix instructions
+
+## Next Steps
+
+- Apply policies to [Design Patterns](/guides/design-patterns)
+- Enforce compliance across [Multiple Clusters](/guides/multi-cluster-setup)
+- Integrate with [CI/CD workflows](/guides/infrastructure-management#infrastructure-as-code)
+- Learn more about [OPA](https://www.openpolicyagent.org/docs/latest/)

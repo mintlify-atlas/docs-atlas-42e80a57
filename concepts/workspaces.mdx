@@ -1,0 +1,350 @@
+---
+title: Workspaces
+description: Organize team collaboration and manage access to designs and environments
+---
+
+Meshery Workspaces serve as virtual collaboration spaces for your teams, similar to how Google Drive organizes files and folders. Workspaces act as the central point of collaboration, access control, and resource organization for cloud native infrastructure management.
+
+## What is a Workspace?
+
+A Workspace is a logical container that groups related resources and provides a collaborative environment for teams to work together on cloud native infrastructure. Think of Workspaces as project folders that contain:
+
+- **Designs** - Infrastructure configurations and deployment templates
+- **Environments** - Collections of deployment targets and connections
+- **Team access** - Permissions and collaboration settings
+
+<Info>
+Workspaces facilitate collaboration between you and your teams, allow you to control access to resources, and track activity and report on related events.
+</Info>
+
+## Key Features
+
+### Resource Sharing
+
+Workspaces enable seamless resource sharing among team members:
+
+- Share designs with specific teams or across the entire workspace
+- Provide access to environments without exposing individual credentials
+- Collaborate in real-time on infrastructure designs
+- Track changes and activity across shared resources
+
+### Logical Grouping
+
+Organize your infrastructure resources logically:
+
+- **Project-based** - Create workspaces for individual projects or applications
+- **Team-based** - Organize by team responsibilities (platform, app team, SRE)
+- **Environment-based** - Separate development, staging, and production workflows
+- **Domain-based** - Group by business domain or service ownership
+
+### Access Control
+
+Control who can view and modify resources:
+
+- Grant workspace access to specific teams
+- Control design ownership and editing permissions
+- Manage environment access through workspace assignments
+- Track user activity and audit resource changes
+
+<Tip>
+Use clear naming conventions for workspaces (e.g., "Platform-Production", "AppTeam-Dev") to make it easy for team members to find the right resources.
+</Tip>
+
+## Workspace Structure
+
+### Data Model
+
+Workspaces in Meshery are defined with the following structure:
+
+```go
+type Workspace struct {
+    ID             uuid.UUID    // Unique identifier
+    Name           string       // Workspace name
+    OrganizationID uuid.UUID    // Parent organization
+    Description    string       // Purpose and details
+    CreatedAt      time.Time    // Creation timestamp
+    UpdatedAt      time.Time    // Last modification
+    DeletedAt      sql.NullTime // Soft delete support
+}
+```
+
+### Resource Relationships
+
+Workspaces maintain relationships with other Meshery entities:
+
+**Workspace → Environments:**
+```go
+type WorkspacesEnvironmentsMapping struct {
+    WorkspaceId   uuid.UUID
+    EnvironmentId uuid.UUID
+    CreatedAt     time.Time
+    UpdatedAt     time.Time
+}
+```
+
+**Workspace → Designs:**
+```go
+type WorkspacesDesignsMapping struct {
+    WorkspaceId uuid.UUID
+    DesignId    uuid.UUID
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
+}
+```
+
+## Working with Workspaces
+
+### Creating a Workspace
+
+Create workspaces through the Meshery UI or API:
+
+**Via REST API:**
+```bash
+curl -X POST https://meshery.example.com/api/workspaces \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "name": "Platform Team Production",
+    "description": "Production infrastructure for platform services",
+    "organization_id": "org-uuid-here"
+  }'
+```
+
+**Via UI:**
+1. Navigate to Workspaces section
+2. Click "Create Workspace"
+3. Enter name and description
+4. Select organization (if applicable)
+5. Click "Create"
+
+### Adding Resources to Workspaces
+
+#### Adding Environments
+
+Assign environments to make their connections available in the workspace:
+
+```bash
+POST /api/workspaces/{workspaceID}/environments/{environmentID}
+```
+
+When you add an environment to a workspace:
+- All connections in that environment become available
+- Team members can deploy designs to those connections
+- Environment credentials are managed separately for security
+
+#### Adding Designs
+
+Share designs with workspace members:
+
+```bash
+POST /api/workspaces/{workspaceID}/designs/{designID}
+```
+
+Adding a design to a workspace:
+- Makes the design visible to all workspace members
+- Allows collaborative editing (based on permissions)
+- Enables deployment to workspace environments
+- Maintains design version history
+
+### Querying Workspace Resources
+
+**List all workspaces:**
+```bash
+GET /api/workspaces?page=0&pagesize=25&orgID={orgID}
+```
+
+**Query parameters:**
+- `page` - Page number (default: 0)
+- `pagesize` - Items per page (default: 20)
+- `search` - Filter by name (greedy search)
+- `order` - Sort by field (e.g., "name", "created_at")
+- `orgID` - Organization filter (required)
+
+**Get workspace details:**
+```bash
+GET /api/workspaces/{workspaceID}?orgID={orgID}
+```
+
+**List environments in workspace:**
+```bash
+GET /api/workspaces/{workspaceID}/environments?page=0&pagesize=25
+```
+
+**List designs in workspace:**
+```bash
+GET /api/workspaces/{workspaceID}/designs?page=0&pagesize=25
+```
+
+## Workspace Relationships and Constraints
+
+### Organizations
+
+- Workspaces belong to exactly one organization
+- Organizations are the unit of tenancy in Meshery
+- All resources created by users are owned by their organization
+- Remote providers can extend organization capabilities (hierarchies, teams)
+
+### Environments
+
+- A workspace can have zero or more environments
+- The same environment can be assigned to multiple workspaces
+- Removing an environment from a workspace doesn't delete the environment
+- Environment connections become available to all workspace members
+
+### Designs
+
+- A design belongs to only one workspace at any given time
+- Designs can be transferred between workspaces
+- The design owner controls sharing and access permissions
+- Cloning a design creates a new design owned by the cloner
+
+<Note>
+While designs belong to a single workspace, they can be shared across workspace boundaries through cloning or export/import mechanisms.
+</Note>
+
+### Teams
+
+- One or more teams can be granted access to a workspace
+- Team members inherit workspace permissions
+- Remote providers can offer fine-grained team permissions
+- Access control is extensible through provider plugins
+
+## Use Cases and Patterns
+
+### Project-Based Workspaces
+
+**Pattern:** Create a workspace for each major project or application.
+
+```
+Workspace: "E-Commerce Platform"
+├── Environments:
+│   ├── ecommerce-prod (GKE cluster)
+│   ├── ecommerce-staging (GKE cluster)
+│   └── ecommerce-dev (local k3s)
+└── Designs:
+    ├── frontend-deployment
+    ├── backend-services
+    ├── database-config
+    └── observability-stack
+```
+
+**Benefits:**
+- Clear project boundaries
+- Easy onboarding of new team members
+- Project-specific resource isolation
+
+### Team-Based Workspaces
+
+**Pattern:** Organize workspaces by team responsibility.
+
+```
+Workspace: "Platform Engineering"
+├── Environments:
+│   ├── shared-infrastructure (all clusters)
+│   └── monitoring (Prometheus/Grafana)
+└── Designs:
+    ├── ingress-controller-base
+    ├── cert-manager-setup
+    └── cluster-monitoring
+
+Workspace: "Application Team Alpha"
+├── Environments:
+│   ├── app-alpha-prod
+│   └── app-alpha-dev
+└── Designs:
+    ├── microservice-template
+    └── app-alpha-services
+```
+
+**Benefits:**
+- Clear ownership and responsibilities
+- Reduced blast radius of changes
+- Team-specific configurations and templates
+
+### Environment-Based Workspaces
+
+**Pattern:** Separate workspaces by deployment stage.
+
+```
+Workspace: "Production"
+├── Environments: [all prod clusters]
+└── Designs: [production-approved configurations]
+
+Workspace: "Development"
+├── Environments: [dev/test clusters]
+└── Designs: [experimental configurations]
+```
+
+**Benefits:**
+- Strong production/non-production separation
+- Different approval workflows per workspace
+- Reduced risk of accidental production changes
+
+## Best Practices
+
+### Naming Conventions
+
+Use clear, consistent naming patterns:
+
+```
+✅ Good:
+- "platform-prod"
+- "AppTeam-Alpha-Production"
+- "data-platform-staging"
+
+❌ Avoid:
+- "workspace1"
+- "test"
+- "johns-workspace"
+```
+
+### Access Management
+
+1. **Principle of least privilege:** Only grant access to teams that need it
+2. **Regular audits:** Review workspace membership quarterly
+3. **Clear ownership:** Designate workspace owners for each workspace
+4. **Documentation:** Maintain descriptions of workspace purpose and contents
+
+### Resource Organization
+
+1. **Logical grouping:** Keep related designs and environments together
+2. **Avoid over-fragmentation:** Don't create too many small workspaces
+3. **Clear boundaries:** Define what belongs in each workspace
+4. **Regular cleanup:** Remove unused designs and environments
+
+### Design Management
+
+1. **Use templates:** Create reusable design templates in shared workspaces
+2. **Version control:** Leverage design versioning and snapshots
+3. **Documentation:** Add descriptions to designs explaining their purpose
+4. **Testing:** Test designs in non-production environments first
+
+<Tip>
+Regularly review and update your workspace's resources and configurations to keep them aligned with your team's current needs.
+</Tip>
+
+## API Reference
+
+Key workspace API endpoints:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workspaces` | List all workspaces |
+| POST | `/api/workspaces` | Create a new workspace |
+| GET | `/api/workspaces/{id}` | Get workspace details |
+| PUT | `/api/workspaces/{id}` | Update workspace |
+| DELETE | `/api/workspaces/{id}` | Delete workspace |
+| GET | `/api/workspaces/{id}/environments` | List workspace environments |
+| POST | `/api/workspaces/{id}/environments/{envID}` | Add environment |
+| DELETE | `/api/workspaces/{id}/environments/{envID}` | Remove environment |
+| GET | `/api/workspaces/{id}/designs` | List workspace designs |
+| POST | `/api/workspaces/{id}/designs/{designID}` | Add design |
+
+See the [Meshery API documentation](/extensibility/api) for complete details.
+
+## Related Concepts
+
+- [Environments](/concepts/environments) - Managing deployment targets and connections
+- [Designs](/concepts/designs) - Infrastructure as code and deployment templates
+- [Connections](/concepts/connections) - Integrations with Kubernetes and services
+- [Organizations](/extensibility/authorization) - Multi-tenancy and user management

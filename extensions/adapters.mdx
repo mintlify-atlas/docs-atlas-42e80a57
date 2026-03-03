@@ -1,0 +1,436 @@
+---
+title: Creating Adapters
+description: Build gRPC adapters to integrate service meshes with Meshery
+---
+
+Meshery adapters are gRPC-based microservices that provide integration between Meshery and specific service mesh or infrastructure platforms. Each adapter implements a standardized protocol defined in `meshops.proto`, enabling consistent lifecycle management, configuration, and operations.
+
+## Adapter Architecture
+
+Adapters communicate with Meshery Server using gRPC and expose a set of standard RPCs for service mesh management:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Meshery Server                               │
+│  ┌──────────────┐       ┌──────────────┐                       │
+│  │  GraphQL API │       │   REST API   │                       │
+│  └──────┬───────┘       └──────┬───────┘                       │
+│         │                      │                               │
+│         └──────────┬───────────┘                               │
+│                    │                                           │
+│         ┌──────────▼──────────┐                                │
+│         │   Adapter Manager   │                                │
+│         └──────────┬──────────┘                                │
+└────────────────────┼────────────────────────────────────────────┘
+                     │ gRPC
+         ┌───────────┼───────────┐
+         │           │           │
+    ┌────▼────┐ ┌───▼────┐ ┌───▼────┐
+    │ Istio   │ │Linkerd │ │Consul  │
+    │ Adapter │ │Adapter │ │Adapter │
+    └────┬────┘ └───┬────┘ └───┬────┘
+         │          │          │
+    Kubernetes  Kubernetes  Kubernetes
+```
+
+## gRPC Protocol Definition
+
+All adapters implement the `MeshService` interface defined in `server/meshes/meshops.proto`:
+
+```protobuf
+service MeshService {
+    // Get the name of the service mesh
+    rpc MeshName(MeshNameRequest) returns (MeshNameResponse) {}
+    
+    // Get supported versions of the mesh
+    rpc MeshVersions(MeshVersionsRequest) returns (MeshVersionsResponse) {}
+    
+    // Apply an operation (install, configure, validate)
+    rpc ApplyOperation(ApplyRuleRequest) returns(ApplyRuleResponse) {}
+    
+    // Get list of supported operations
+    rpc SupportedOperations(SupportedOperationsRequest) returns (SupportedOperationsResponse) {}
+    
+    // Stream events back to server
+    rpc StreamEvents(EventsRequest) returns (stream EventsResponse) {}
+    
+    // Provision resources using declarative configuration
+    rpc Provision(ProvisionRequest) returns (ProvisionResponse) {}
+    
+    // Get adapter component information
+    rpc ComponentInfo(ComponentInfoRequest) returns(ComponentInfoResponse) {}
+}
+```
+
+## Message Types
+
+### ApplyRuleRequest
+
+Used to execute operations on the service mesh:
+
+```protobuf
+message ApplyRuleRequest {
+    string opName = 1;              // Operation name (e.g., "istio-install")
+    string namespace = 2;           // Target namespace
+    string username = 3;            // User performing operation
+    string custom_body = 4;         // Custom configuration YAML/JSON
+    bool delete_op = 5;             // true for delete operations
+    string operation_id = 6;        // Unique operation identifier
+    repeated string kube_configs=7; // Kubeconfig(s) for target cluster(s)
+    string version = 8;             // Mesh version to install
+}
+```
+
+### ApplyRuleResponse
+
+```protobuf
+message ApplyRuleResponse {
+    string error = 1;        // Error message (empty if successful)
+    string operation_id = 2; // Operation ID for tracking
+}
+```
+
+### SupportedOperation
+
+Defines operations the adapter can perform:
+
+```protobuf
+message SupportedOperation {
+    string key = 1;          // Operation identifier
+    string value = 2;        // Human-readable description
+    OpCategory category = 3; // Operation category
+}
+
+enum OpCategory {
+    INSTALL = 0;            // Install mesh control plane
+    SAMPLE_APPLICATION = 1; // Deploy sample applications
+    CONFIGURE = 2;          // Configure mesh settings
+    VALIDATE = 3;           // Validate configuration
+    CUSTOM = 4;             // Custom operations
+}
+```
+
+### EventsResponse
+
+Streamed events during operations:
+
+```protobuf
+message EventsResponse {
+    EventType event_type = 1;          // INFO, WARN, or ERROR
+    string summary = 2;                // Brief event description
+    string details = 3;                // Detailed event information
+    string operation_id = 4;           // Associated operation ID
+    string probable_cause = 5;         // For errors, likely cause
+    string suggested_remediation = 6;  // For errors, suggested fix
+    string error_code = 7;             // Error code
+    string component = 8;              // Component generating event
+    string component_name = 9;         // Component instance name
+}
+
+enum EventType {
+    INFO = 0;
+    WARN = 1;
+    ERROR = 2;
+}
+```
+
+### ComponentInfoResponse
+
+Adapter metadata returned by `ComponentInfo` RPC:
+
+```protobuf
+message ComponentInfoResponse {
+    string type = 1;                    // Always "adapter"
+    string name = 2;                    // Adapter name (e.g., "istio")
+    string version = 3;                 // Adapter version
+    string git_sha = 4;                 // Build commit SHA
+    map<string, string> properties = 5; // Additional metadata
+}
+```
+
+## Creating an Adapter
+
+### 1. Project Structure
+
+```
+meshery-<mesh-name>/
+├── main.go
+├── <mesh>/
+│   ├── <mesh>.go           # Main adapter logic
+│   ├── operations.go       # Operation handlers
+│   ├── install.go          # Installation logic
+│   └── oam.go              # OAM component registration
+├── meshes/                 # Generated protobuf code
+│   ├── meshops.proto
+│   ├── meshops.pb.go
+│   └── meshops_grpc.pb.go
+├── build/
+│   └── Dockerfile
+└── go.mod
+```
+
+### 2. Implement the gRPC Server
+
+```go
+package main
+
+import (
+    "net"
+    "google.golang.org/grpc"
+    "github.com/meshery/meshery-<mesh>/meshes"
+    "github.com/meshery/meshery-<mesh>/<mesh>"
+)
+
+func main() {
+    // Create gRPC server
+    lis, err := net.Listen("tcp", ":10000")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    grpcServer := grpc.NewServer()
+    
+    // Register service
+    meshes.RegisterMeshServiceServer(grpcServer, &<mesh>.Service{})
+    
+    // Start serving
+    log.Println("Adapter listening on :10000")
+    if err := grpcServer.Serve(lis); err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+### 3. Implement MeshService Interface
+
+```go
+type Service struct {
+    meshes.UnimplementedMeshServiceServer
+}
+
+func (s *Service) MeshName(ctx context.Context, req *meshes.MeshNameRequest) (*meshes.MeshNameResponse, error) {
+    return &meshes.MeshNameResponse{
+        Name: "Istio",
+    }, nil
+}
+
+func (s *Service) ComponentInfo(ctx context.Context, req *meshes.ComponentInfoRequest) (*meshes.ComponentInfoResponse, error) {
+    return &meshes.ComponentInfoResponse{
+        Type:    "adapter",
+        Name:    "istio",
+        Version: "v0.8.0",
+        GitSha:  "abc123",
+    }, nil
+}
+
+func (s *Service) SupportedOperations(ctx context.Context, req *meshes.SupportedOperationsRequest) (*meshes.SupportedOperationsResponse, error) {
+    return &meshes.SupportedOperationsResponse{
+        Ops: []*meshes.SupportedOperation{
+            {
+                Key:      "istio-install",
+                Value:    "Install Istio",
+                Category: meshes.OpCategory_INSTALL,
+            },
+            {
+                Key:      "bookinfo-app",
+                Value:    "Deploy BookInfo Application",
+                Category: meshes.OpCategory_SAMPLE_APPLICATION,
+            },
+        },
+    }, nil
+}
+```
+
+### 4. Implement ApplyOperation
+
+```go
+func (s *Service) ApplyOperation(ctx context.Context, req *meshes.ApplyRuleRequest) (*meshes.ApplyRuleResponse, error) {
+    operationID := req.OperationId
+    
+    // Stream events
+    go s.streamEvent(operationID, meshes.EventType_INFO, 
+        "Starting operation", req.OpName)
+    
+    // Parse kubeconfig
+    clientset, err := getKubeClient(req.KubeConfigs[0])
+    if err != nil {
+        return &meshes.ApplyRuleResponse{
+            Error:       err.Error(),
+            OperationId: operationID,
+        }, err
+    }
+    
+    // Execute operation based on opName
+    switch req.OpName {
+    case "istio-install":
+        err = s.installIstio(ctx, clientset, req.Namespace, req.Version)
+    case "bookinfo-app":
+        err = s.deployBookInfo(ctx, clientset, req.Namespace)
+    default:
+        err = fmt.Errorf("unknown operation: %s", req.OpName)
+    }
+    
+    if err != nil {
+        s.streamEvent(operationID, meshes.EventType_ERROR,
+            "Operation failed", err.Error())
+        return &meshes.ApplyRuleResponse{
+            Error:       err.Error(),
+            OperationId: operationID,
+        }, err
+    }
+    
+    s.streamEvent(operationID, meshes.EventType_INFO,
+        "Operation completed", "")
+    
+    return &meshes.ApplyRuleResponse{
+        OperationId: operationID,
+    }, nil
+}
+```
+
+### 5. Stream Events
+
+```go
+type eventStreamer struct {
+    subscribers map[string]chan *meshes.EventsResponse
+    mu          sync.RWMutex
+}
+
+func (s *Service) StreamEvents(req *meshes.EventsRequest, stream meshes.MeshService_StreamEventsServer) error {
+    eventChan := make(chan *meshes.EventsResponse, 100)
+    
+    // Register subscriber
+    s.eventStreamer.mu.Lock()
+    s.eventStreamer.subscribers["subscriber-id"] = eventChan
+    s.eventStreamer.mu.Unlock()
+    
+    // Stream events
+    for event := range eventChan {
+        if err := stream.Send(event); err != nil {
+            return err
+        }
+    }
+    
+    return nil
+}
+
+func (s *Service) streamEvent(opID string, eventType meshes.EventType, summary, details string) {
+    event := &meshes.EventsResponse{
+        OperationId: opID,
+        EventType:   eventType,
+        Summary:     summary,
+        Details:     details,
+    }
+    
+    s.eventStreamer.mu.RLock()
+    for _, ch := range s.eventStreamer.subscribers {
+        ch <- event
+    }
+    s.eventStreamer.mu.RUnlock()
+}
+```
+
+### 6. Dockerfile
+
+```dockerfile
+FROM golang:1.21 AS builder
+
+WORKDIR /app
+COPY . .
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -o /adapter
+
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+COPY --from=builder /adapter /adapter
+
+EXPOSE 10000
+CMD ["/adapter"]
+```
+
+## Connecting to Meshery Server
+
+Meshery Server creates gRPC clients to connect to adapters:
+
+```go
+// From server/meshes/client.go
+func CreateClient(ctx context.Context, meshLocationURL string) (*MeshClient, error) {
+    opts := []grpc.DialOption{
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    }
+    
+    conn, err := grpc.NewClient(meshLocationURL, opts...)
+    if err != nil {
+        return nil, err
+    }
+    
+    return &MeshClient{
+        conn:    conn,
+        MClient: NewMeshServiceClient(conn),
+    }, nil
+}
+```
+
+## Configuration
+
+Adapters are configured via environment variables and command-line flags:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | gRPC server port | `10000` |
+| `KUBECONFIG` | Path to kubeconfig | `~/.kube/config` |
+| `ADAPTER_VERSION` | Adapter version | - |
+
+## Testing
+
+### Unit Tests
+
+```go
+func TestApplyOperation(t *testing.T) {
+    service := &Service{}
+    
+    req := &meshes.ApplyRuleRequest{
+        OpName:      "istio-install",
+        Namespace:   "istio-system",
+        OperationId: "test-op-123",
+    }
+    
+    resp, err := service.ApplyOperation(context.Background(), req)
+    assert.NoError(t, err)
+    assert.Empty(t, resp.Error)
+}
+```
+
+### Integration Tests
+
+Use a test Kubernetes cluster (kind, minikube) to test actual operations.
+
+## Best Practices
+
+1. **Error Handling**: Always return descriptive errors with probable causes and remediation steps
+2. **Event Streaming**: Stream progress events for long-running operations
+3. **Idempotency**: Make operations idempotent where possible
+4. **Version Support**: Support multiple versions of the service mesh
+5. **Cleanup**: Implement proper cleanup for failed operations
+6. **Logging**: Use structured logging with appropriate verbosity levels
+7. **Health Checks**: Implement health check endpoints
+8. **Graceful Shutdown**: Handle SIGTERM for graceful termination
+
+## Example Adapters
+
+Reference implementations:
+
+- [meshery-istio](https://github.com/meshery/meshery-istio)
+- [meshery-linkerd](https://github.com/meshery/meshery-linkerd)
+- [meshery-consul](https://github.com/meshery/meshery-consul)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Provider Plugins" icon="cloud" href="/extensions/providers">
+    Learn about provider plugin system
+  </Card>
+  <Card title="UI Extensions" icon="window" href="/extensions/ui-plugins">
+    Create custom UI components
+  </Card>
+</CardGroup>

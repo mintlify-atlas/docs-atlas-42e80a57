@@ -1,0 +1,543 @@
+---
+title: mesheryctl system
+description: Configure, deploy, and operate Meshery deployments
+---
+
+The `system` command manages the lifecycle and configuration of Meshery server and its components.
+
+## Synopsis
+
+```bash
+mesheryctl system [subcommand] [flags]
+```
+
+## Subcommands
+
+- `start` - Start Meshery and all components
+- `stop` - Stop all Meshery containers or Kubernetes resources
+- `restart` - Restart Meshery
+- `status` - Check status of Meshery components
+- `reset` - Reset Meshery configuration to default
+- `update` - Update Meshery containers or Kubernetes deployments
+- `logs` - View logs from Meshery components
+- `context` - Manage Meshery deployment contexts
+- `channel` - Switch between release channels (stable/edge)
+- `check` - Run preflight checks
+- `dashboard` - Open Meshery UI in browser
+- `login` - Authenticate with Meshery provider
+- `logout` - Logout from current provider
+- `token` - Manage authentication tokens
+- `provider` - Manage and switch between providers
+- `config` - Configure Meshery settings
+- `delete` - Delete Meshery deployment
+
+## Global Flags
+
+<ParamField path="--context" type="string">
+  Temporarily change the current context. Short form: `-c`
+</ParamField>
+
+<ParamField path="--yes" type="boolean" default="false">
+  Assume yes for user interactive prompts. Short form: `-y`
+</ParamField>
+
+## start
+
+Start Meshery and each of its cloud native components.
+
+### Usage
+
+```bash
+mesheryctl system start [flags]
+```
+
+### Flags
+
+<ParamField path="--platform" type="string" default="docker">
+  Platform to deploy Meshery. Options: `docker`, `kubernetes`. Short form: `-p`
+</ParamField>
+
+<ParamField path="--skip-update" type="boolean" default="false">
+  Skip checking for new updates available in Meshery
+</ParamField>
+
+<ParamField path="--skip-browser" type="boolean" default="false">
+  Skip opening MesheryUI in browser after start
+</ParamField>
+
+<ParamField path="--reset" type="boolean" default="false">
+  Reset Meshery's configuration file to default settings
+</ParamField>
+
+<ParamField path="--provider" type="string">
+  Provider to use for authentication (e.g., "Meshery", "None")
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Basic Start
+# Start Meshery with default settings
+mesheryctl system start
+```
+
+```bash Platform Selection
+# Start on Docker
+mesheryctl system start --platform docker
+
+# Start on Kubernetes
+mesheryctl system start --platform kubernetes
+```
+
+```bash Advanced Options
+# Start without opening browser
+mesheryctl system start --skip-browser
+
+# Start and skip update checks
+mesheryctl system start --skip-update
+
+# Reset config and start fresh
+mesheryctl system start --reset
+```
+</CodeGroup>
+
+<Note>
+The first time you run `mesheryctl system start`, it downloads necessary container images which may take a few minutes.
+</Note>
+
+## stop
+
+Stop all Meshery containers (Docker) or remove all resources (Kubernetes).
+
+### Usage
+
+```bash
+mesheryctl system stop [flags]
+```
+
+### Flags
+
+<ParamField path="--reset" type="boolean" default="false">
+  Reset Meshery's configuration file to default settings
+</ParamField>
+
+<ParamField path="--keep-namespace" type="boolean" default="false">
+  Keep the Meshery namespace during uninstallation (Kubernetes only)
+</ParamField>
+
+<ParamField path="--force" type="boolean" default="false">
+  Force uninstall Meshery resources when normal stop doesn't work
+</ParamField>
+
+### Examples
+
+```bash
+# Stop Meshery
+mesheryctl system stop
+
+# Stop and reset configuration
+mesheryctl system stop --reset
+
+# Stop but keep namespace (Kubernetes)
+mesheryctl system stop --keep-namespace
+
+# Force stop when encountering errors
+mesheryctl system stop --force
+```
+
+## status
+
+Check the status of Meshery and its components.
+
+### Usage
+
+```bash
+mesheryctl system status [flags]
+```
+
+### Flags
+
+<ParamField path="--verbose" type="boolean" default="false">
+  Display extra data in status table including Pod names and IPs. Short form: `-v`
+</ParamField>
+
+### Examples
+
+```bash
+# Check status
+mesheryctl system status
+
+# Detailed status with pod information
+mesheryctl system status --verbose
+```
+
+### Sample Output
+
+```
+Meshery Status:
+Name                  Ready   Status    Restarts   Age
+meshery-server        1/1     Running   0          2m
+meshery-broker        1/1     Running   0          2m
+meshery-meshsync      1/1     Running   0          2m
+
+Meshery endpoint is http://localhost:9081
+```
+
+## restart
+
+Restart Meshery and its components.
+
+### Usage
+
+```bash
+mesheryctl system restart
+```
+
+### Example
+
+```bash
+# Restart Meshery
+mesheryctl system restart
+```
+
+## reset
+
+Reset Meshery to default configuration.
+
+### Usage
+
+```bash
+mesheryctl system reset
+```
+
+### Example
+
+```bash
+# Reset Meshery configuration
+mesheryctl system reset
+```
+
+<Note>
+This command resets the configuration file but does not remove deployed resources. Use with `system stop --reset` to completely reset the installation.
+</Note>
+
+## update
+
+Update Meshery container images or Kubernetes deployments to the latest version.
+
+### Usage
+
+```bash
+mesheryctl system update [flags]
+```
+
+### Example
+
+```bash
+# Update Meshery
+mesheryctl system update
+```
+
+## logs
+
+View logs from Meshery components.
+
+### Usage
+
+```bash
+mesheryctl system logs [component-name] [flags]
+```
+
+### Flags
+
+<ParamField path="--follow" type="boolean" default="false">
+  Follow log output. Short form: `-f`
+</ParamField>
+
+### Examples
+
+```bash
+# View all Meshery logs
+mesheryctl system logs
+
+# View specific component logs
+mesheryctl system logs meshery-server
+
+# Follow logs in real-time
+mesheryctl system logs --follow
+```
+
+## context
+
+Manage Meshery deployment contexts. Contexts store endpoint, platform, and authentication information.
+
+### Usage
+
+```bash
+mesheryctl system context [subcommand]
+```
+
+### Subcommands
+
+- `create` - Create a new context
+- `delete` - Delete a context
+- `list` - List all contexts
+- `switch` - Switch to a different context
+- `view` - View current context details
+
+### Examples
+
+<CodeGroup>
+```bash Create Context
+# Create local context
+mesheryctl system context create local --url http://localhost:9081
+
+# Create and set as current
+mesheryctl system context create prod --url https://meshery.example.com --set
+```
+
+```bash Manage Contexts
+# List all contexts
+mesheryctl system context list
+
+# Switch context
+mesheryctl system context switch prod
+
+# View current context
+mesheryctl system context view
+
+# Delete context
+mesheryctl system context delete old-context
+```
+</CodeGroup>
+
+## channel
+
+Switch between Meshery release channels.
+
+### Usage
+
+```bash
+mesheryctl system channel [stable|edge]
+```
+
+### Examples
+
+```bash
+# Switch to stable channel
+mesheryctl system channel stable
+
+# Switch to edge channel for latest features
+mesheryctl system channel edge
+
+# View current channel
+mesheryctl system channel view
+```
+
+## check
+
+Run preflight checks to verify system requirements.
+
+### Usage
+
+```bash
+mesheryctl system check [flags]
+```
+
+### Flags
+
+<ParamField path="--preflight" type="boolean" default="true">
+  Run preflight checks before operations
+</ParamField>
+
+### Example
+
+```bash
+# Run system checks
+mesheryctl system check
+```
+
+### Checks Performed
+
+- Docker/Kubernetes availability
+- Network connectivity
+- Required ports availability
+- Permissions
+
+## dashboard
+
+Open Meshery UI in the default browser.
+
+### Usage
+
+```bash
+mesheryctl system dashboard [flags]
+```
+
+### Flags
+
+<ParamField path="--port" type="integer" default="9081">
+  Port on which Meshery UI is running
+</ParamField>
+
+<ParamField path="--port-forward" type="boolean" default="false">
+  Enable port forwarding (Kubernetes only)
+</ParamField>
+
+### Examples
+
+```bash
+# Open dashboard
+mesheryctl system dashboard
+
+# Open with port forwarding (Kubernetes)
+mesheryctl system dashboard --port-forward
+```
+
+## login
+
+Authenticate with a Meshery provider.
+
+### Usage
+
+```bash
+mesheryctl system login [flags]
+```
+
+### Example
+
+```bash
+# Login to Meshery
+mesheryctl system login
+```
+
+## logout
+
+Logout from the current provider.
+
+### Usage
+
+```bash
+mesheryctl system logout
+```
+
+### Example
+
+```bash
+# Logout
+mesheryctl system logout
+```
+
+## token
+
+Manage authentication tokens.
+
+### Usage
+
+```bash
+mesheryctl system token [subcommand]
+```
+
+### Subcommands
+
+- `create` - Generate a new token
+- `list` - List all tokens
+- `delete` - Delete a token
+
+### Examples
+
+```bash
+# Create new token
+mesheryctl system token create mytoken
+
+# List tokens
+mesheryctl system token list
+
+# Delete token
+mesheryctl system token delete mytoken
+```
+
+## provider
+
+Manage and switch between Meshery providers.
+
+### Usage
+
+```bash
+mesheryctl system provider [subcommand]
+```
+
+### Subcommands
+
+- `list` - List available providers
+- `switch` - Switch to a different provider
+- `set` - Set default provider
+
+### Examples
+
+```bash
+# List providers
+mesheryctl system provider list
+
+# Switch provider
+mesheryctl system provider switch Meshery
+```
+
+## delete
+
+Delete Meshery deployment and resources.
+
+### Usage
+
+```bash
+mesheryctl system delete
+```
+
+### Example
+
+```bash
+# Delete Meshery
+mesheryctl system delete
+```
+
+<Note>
+This command removes all Meshery resources including configurations. Use `system stop` if you want to preserve configuration.
+</Note>
+
+## Troubleshooting
+
+### Meshery Won't Start
+
+```bash
+# Check system requirements
+mesheryctl system check
+
+# View logs for errors
+mesheryctl system logs
+
+# Try force restart
+mesheryctl system stop --force
+mesheryctl system start
+```
+
+### Port Already in Use
+
+If port 9081 is already in use, edit the config file:
+
+```bash
+# Edit ~/.meshery/config.yaml and change the endpoint port
+# Then restart Meshery
+mesheryctl system restart
+```
+
+### Connection Refused
+
+```bash
+# Verify Meshery is running
+mesheryctl system status
+
+# Check the endpoint in your context
+mesheryctl system context view
+
+# Ensure endpoint matches where Meshery is running
+```

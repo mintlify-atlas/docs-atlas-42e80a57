@@ -1,0 +1,551 @@
+---
+title: Connections
+description: REST API endpoints for managing Meshery connections
+---
+
+Connections represent integrations with external systems such as Kubernetes clusters, Prometheus, Grafana, and other platforms. Meshery uses connections to discover, monitor, and manage infrastructure.
+
+## List Connections
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:9081/api/integrations/connections?page=0&pagesize=25"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'http://localhost:9081/api/integrations/connections?page=0&pagesize=25',
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+const connections = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'http://localhost:9081/api/integrations/connections',
+    headers={'Authorization': f'Bearer {token}'},
+    params={'page': 0, 'pagesize': 25}
+)
+connections = response.json()
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/integrations/connections`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number for pagination (0-indexed)
+</ParamField>
+
+<ParamField query="pagesize" type="string" default="10">
+  Number of connections per page. Use `all` to return all results (max 100).
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term for filtering connections
+</ParamField>
+
+<ParamField query="order" type="string" default="updated_at desc">
+  Field to order by
+</ParamField>
+
+<ParamField query="filter" type="string">
+  Filter by type or sub_type:
+  - `type platform`
+  - `sub_type management`
+</ParamField>
+
+<ParamField query="status" type="array">
+  Filter by status array: `["connected", "deleted"]`
+  ```
+  status=["connected","registered"]
+  ```
+</ParamField>
+
+<ParamField query="kind" type="array">
+  Filter by kind array: `["kubernetes", "prometheus"]`
+  ```
+  kind=["kubernetes","meshery"]
+  ```
+</ParamField>
+
+<ParamField query="type" type="array">
+  Filter by type array: `["platform", "observability"]`
+  ```
+  type=["platform","observability"]
+  ```
+</ParamField>
+
+<ParamField query="name" type="string">
+  Filter by connection name (partial match)
+</ParamField>
+
+### Response
+
+<ResponseField name="page" type="integer">
+  Current page number
+</ResponseField>
+
+<ResponseField name="page_size" type="integer">
+  Number of items per page
+</ResponseField>
+
+<ResponseField name="total_count" type="integer">
+  Total number of connections
+</ResponseField>
+
+<ResponseField name="connections" type="array">
+  Array of connection objects
+  <Expandable title="Connection Object">
+    <ResponseField name="id" type="string">
+      Unique connection identifier (UUID)
+    </ResponseField>
+    <ResponseField name="name" type="string">
+      Connection name
+    </ResponseField>
+    <ResponseField name="kind" type="string">
+      Connection kind: `kubernetes`, `prometheus`, `grafana`, `meshery`, etc.
+    </ResponseField>
+    <ResponseField name="type" type="string">
+      Connection type: `platform`, `observability`, `registry`
+    </ResponseField>
+    <ResponseField name="sub_type" type="string">
+      Connection sub-type: `management`, `metrics`, `logs`
+    </ResponseField>
+    <ResponseField name="status" type="string">
+      Connection status:
+      - `connected` - Active and connected
+      - `registered" - Registered but not connected
+      - `discovered` - Auto-discovered
+      - `ignored` - Ignored by user
+      - `deleted` - Soft deleted
+      - `maintenance` - Under maintenance
+      - `disconnected` - Disconnected
+      - `not_found` - Not found
+    </ResponseField>
+    <ResponseField name="metadata" type="object">
+      Connection-specific metadata (varies by kind)
+    </ResponseField>
+    <ResponseField name="created_at" type="string">
+      Creation timestamp (ISO 8601)
+    </ResponseField>
+    <ResponseField name="updated_at" type="string">
+      Last update timestamp (ISO 8601)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Example Response:**
+
+```json
+{
+  "page": 0,
+  "page_size": 25,
+  "total_count": 3,
+  "connections": [
+    {
+      "id": "880e8400-e29b-41d4-a716-446655440003",
+      "name": "prod-cluster-1",
+      "kind": "kubernetes",
+      "type": "platform",
+      "sub_type": "management",
+      "status": "connected",
+      "metadata": {
+        "server": "https://k8s.example.com:6443",
+        "version": "v1.28.0"
+      },
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-02-20T14:45:00Z"
+    }
+  ]
+}
+```
+
+---
+
+## Get Connection by ID
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/integrations/connections/{connectionId}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/integrations/connections/${connectionId}`,
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+const connection = await response.json();
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/integrations/connections/{connectionId}`
+
+### Path Parameters
+
+<ParamField path="connectionId" type="string" required>
+  Connection ID (UUID)
+</ParamField>
+
+### Response
+
+Returns a single connection object.
+
+---
+
+## Create Connection
+
+<CodeGroup>
+```bash cURL (Kubernetes)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-k8s-cluster",
+    "kind": "kubernetes",
+    "type": "platform",
+    "sub_type": "management"
+  }' \
+  http://localhost:9081/api/integrations/connections
+```
+
+```bash cURL (Prometheus)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-prometheus",
+    "kind": "prometheus",
+    "type": "observability",
+    "sub_type": "metrics",
+    "metadata": {
+      "url": "http://prometheus:9090"
+    }
+  }' \
+  http://localhost:9081/api/integrations/connections
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'http://localhost:9081/api/integrations/connections',
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: 'my-k8s-cluster',
+      kind: 'kubernetes',
+      type: 'platform',
+      sub_type: 'management'
+    })
+  }
+);
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/integrations/connections`
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Connection name
+</ParamField>
+
+<ParamField body="kind" type="string" required>
+  Connection kind:
+  - `kubernetes`
+  - `prometheus`
+  - `grafana`
+  - `meshery`
+  - And other supported integrations
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Connection type:
+  - `platform`
+  - `observability`
+  - `registry`
+</ParamField>
+
+<ParamField body="sub_type" type="string" required>
+  Connection sub-type:
+  - `management`
+  - `metrics`
+  - `logs`
+  - `traces`
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Connection-specific metadata (varies by kind)
+</ParamField>
+
+### Response
+
+**Status:** `201 Created`
+
+Returns the created connection object.
+
+---
+
+## Update Connection
+
+<CodeGroup>
+```bash cURL
+curl -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Connection Name",
+    "status": "connected"
+  }' \
+  http://localhost:9081/api/integrations/connections/{connectionId}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/integrations/connections/${connectionId}`,
+  {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name: 'Updated Connection Name',
+      status: 'connected'
+    })
+  }
+);
+```
+</CodeGroup>
+
+**Method:** `PUT`
+
+**Endpoint:** `/api/integrations/connections/{connectionId}`
+
+### Path Parameters
+
+<ParamField path="connectionId" type="string" required>
+  Connection ID (UUID)
+</ParamField>
+
+### Request Body
+
+<ParamField body="name" type="string">
+  Updated connection name
+</ParamField>
+
+<ParamField body="status" type="string">
+  Updated connection status
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Updated metadata object
+  
+  **Special: MeshSync Deployment Mode**
+  
+  For Kubernetes connections, you can change the MeshSync deployment mode:
+  ```json
+  {
+    "metadata": {
+      "meshsync_deployment_mode": "broker"
+    }
+  }
+  ```
+  
+  Valid modes:
+  - `broker` - Deploy MeshSync via Meshery Broker (default)
+  - `native` - Deploy MeshSync natively in the cluster
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the updated connection object.
+
+---
+
+## Delete Connection
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/integrations/connections/{connectionId}
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `http://localhost:9081/api/integrations/connections/${connectionId}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/integrations/connections/{connectionId}`
+
+### Path Parameters
+
+<ParamField path="connectionId" type="string" required>
+  Connection ID (UUID)
+</ParamField>
+
+### Response
+
+**Status:** `200 OK`
+
+Returns the deleted connection object.
+
+---
+
+## Register Connection
+
+The connection registration endpoint handles a multi-step process for registering new connections, particularly for Kubernetes clusters.
+
+<CodeGroup>
+```bash cURL (Step 1: Initialize)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "kind": "kubernetes",
+    "status": "init"
+  }' \
+  http://localhost:9081/api/integrations/connections/register
+```
+
+```bash cURL (Step 2: Register)
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "REGISTRATION_ID_FROM_STEP_1",
+    "kind": "kubernetes",
+    "status": "register",
+    "name": "my-cluster"
+  }' \
+  http://localhost:9081/api/integrations/connections/register
+```
+
+```bash cURL (Terminate Registration)
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"id": "REGISTRATION_ID"}' \
+  http://localhost:9081/api/integrations/connections/register
+```
+</CodeGroup>
+
+**Method:** `POST`, `DELETE`
+
+**Endpoint:** `/api/integrations/connections/register`
+
+### Request Body (Init)
+
+<ParamField body="kind" type="string" required>
+  Connection kind (e.g., `kubernetes`)
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  Set to `init` to initialize registration
+</ParamField>
+
+### Response (Init)
+
+Returns connection and credential schemas along with a registration ID:
+
+```json
+{
+  "id": "registration-uuid",
+  "connection": {
+    "schema": {...}
+  },
+  "credential": {
+    "schema": {...}
+  }
+}
+```
+
+### Request Body (Register)
+
+<ParamField body="id" type="string" required>
+  Registration ID from init step
+</ParamField>
+
+<ParamField body="kind" type="string" required>
+  Connection kind
+</ParamField>
+
+<ParamField body="status" type="string" required>
+  Registration status event (e.g., `register`, `connect`, `verify`)
+</ParamField>
+
+<ParamField body="name" type="string">
+  Connection name
+</ParamField>
+
+---
+
+## Connection Kinds
+
+Supported connection kinds:
+
+- **kubernetes** - Kubernetes clusters
+- **prometheus** - Prometheus metrics servers
+- **grafana** - Grafana dashboards
+- **meshery** - Other Meshery instances
+- **github** - GitHub repositories
+- **aws** - AWS accounts
+- **gcp** - Google Cloud projects
+- **azure** - Azure subscriptions
+
+Each kind has specific metadata requirements. Refer to the connection schemas for details.
+
+---
+
+## Error Codes
+
+<ResponseField name="400 Bad Request" type="error">
+  Invalid request parameters or malformed JSON
+</ResponseField>
+
+<ResponseField name="401 Unauthorized" type="error">
+  Missing or invalid authentication token
+</ResponseField>
+
+<ResponseField name="404 Not Found" type="error">
+  Connection not found
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error" type="error">
+  Server error occurred
+</ResponseField>

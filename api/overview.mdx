@@ -1,0 +1,143 @@
+---
+title: API Overview
+description: Introduction to Meshery's REST and GraphQL APIs
+---
+
+Meshery provides both REST and GraphQL APIs to enable programmatic access to all platform capabilities. The APIs support managing Kubernetes clusters, deploying designs, configuring service meshes, and orchestrating cloud native infrastructure.
+
+## Base URLs
+
+The Meshery Server API is accessible at:
+
+```
+http://localhost:9081/api
+```
+
+For production deployments, replace `localhost:9081` with your Meshery Server address.
+
+### API Endpoints
+
+- **REST API**: `http://localhost:9081/api/*`
+- **GraphQL API**: `http://localhost:9081/api/system/graphql/query`
+- **GraphQL Playground**: `http://localhost:9081/api/system/graphql/playground`
+
+## API Types
+
+### REST API
+
+The REST API provides comprehensive endpoints for:
+
+- **Workspaces** - Organize teams and projects
+- **Environments** - Manage deployment targets
+- **Connections** - Connect to Kubernetes clusters and external services
+- **Designs** - Create and deploy infrastructure patterns
+- **Components** - Work with MeshModel components
+- **Models** - Manage infrastructure models
+- **Performance** - Run performance tests
+- **System** - Server configuration and metadata
+
+### GraphQL API
+
+The GraphQL API provides:
+
+- **Queries** - Fetch data about control planes, data planes, namespaces, performance results, and more
+- **Mutations** - Modify operator and adapter status
+- **Subscriptions** - Real-time updates for performance results, controller status, cluster resources, and events
+
+## Response Format
+
+All REST API responses return JSON with the following structure:
+
+### Success Response
+
+```json
+{
+  "page": 0,
+  "page_size": 25,
+  "total_count": 100,
+  "data": [...]
+}
+```
+
+### Error Response
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "description": "Human-readable error message"
+  }
+}
+```
+
+## Common Query Parameters
+
+Many REST endpoints support these query parameters:
+
+<ParamField query="page" type="integer" default="0">
+  Page number for pagination (0-indexed)
+</ParamField>
+
+<ParamField query="pagesize" type="integer" default="25">
+  Number of items per page. Use `all` to return all results.
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term for filtering results (greedy search)
+</ParamField>
+
+<ParamField query="order" type="string" default="updated_at desc">
+  Field to order by (e.g., `name`, `created_at`, `updated_at`)
+</ParamField>
+
+<ParamField query="sort" type="string" default="desc">
+  Sort direction: `asc` or `desc`
+</ParamField>
+
+## Rate Limiting
+
+Currently, Meshery does not enforce rate limiting on API requests. However, for production use, consider implementing your own rate limiting at the reverse proxy or load balancer level.
+
+## API Versioning
+
+Meshery APIs follow semantic versioning. The current API version is included in response headers:
+
+```
+X-Meshery-Version: v0.7.0
+```
+
+Breaking changes will be communicated through the [Meshery release notes](https://github.com/meshery/meshery/releases).
+
+## CORS
+
+Cross-Origin Resource Sharing (CORS) is enabled for all API endpoints to support browser-based applications.
+
+## OpenAPI Specification
+
+Meshery provides an OpenAPI/Swagger specification for the REST API:
+
+```bash
+curl http://localhost:9081/swagger/swagger.json
+```
+
+## Getting Help
+
+For API support:
+
+- [Meshery Discussions](https://github.com/meshery/meshery/discussions)
+- [Slack Community](http://slack.meshery.io)
+- [GitHub Issues](https://github.com/meshery/meshery/issues)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/api/authentication">
+    Learn how to authenticate API requests
+  </Card>
+  <Card title="REST API" icon="brackets-curly" href="/api/rest/workspaces">
+    Explore REST endpoints
+  </Card>
+  <Card title="GraphQL API" icon="diagram-project" href="/api/graphql/overview">
+    Use the GraphQL API
+  </Card>
+</CardGroup>

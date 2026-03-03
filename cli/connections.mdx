@@ -1,0 +1,400 @@
+---
+title: mesheryctl connection
+description: Manage Meshery connections to Kubernetes clusters and cloud providers
+---
+
+The `connection` command manages connections to Kubernetes clusters, cloud providers, and other infrastructure.
+
+## Synopsis
+
+```bash
+mesheryctl connection [subcommand] [flags]
+```
+
+## Subcommands
+
+- `list` - List all connections
+- `view` - View connection details
+- `create` - Create a new connection
+- `delete` - Delete a connection
+
+## Global Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display total count of connections. Short form: `-c`
+</ParamField>
+
+## list
+
+List all registered connections.
+
+### Usage
+
+```bash
+mesheryctl connection list [flags]
+```
+
+### Flags
+
+<ParamField path="--count" type="boolean" default="false">
+  Display only the count of connections
+</ParamField>
+
+<ParamField path="--page" type="integer" default="1">
+  Page number for pagination
+</ParamField>
+
+<ParamField path="--page-size" type="integer" default="25">
+  Number of connections per page
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash List Connections
+# List all connections
+mesheryctl connection list
+
+# Get connection count
+mesheryctl connection list --count
+```
+
+```bash Pagination
+# List with pagination
+mesheryctl connection list --page 1 --page-size 50
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+NAME                TYPE            STATUS        CREATED
+local-k8s           kubernetes      connected     2024-03-01 10:30:00
+aws-eks-prod        eks             connected     2024-03-02 14:22:00
+azure-aks-dev       aks             connected     2024-03-03 09:15:00
+gcp-gke-staging     gke             disconnected  2024-03-04 11:45:00
+
+Total: 4 connections
+```
+
+## view
+
+Display detailed information about a connection.
+
+### Usage
+
+```bash
+mesheryctl connection view [connection-id] [flags]
+```
+
+### Flags
+
+<ParamField path="--output" type="string" default="yaml">
+  Output format: `yaml`, `json`. Short form: `-o`
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash View Connection
+# View connection in YAML
+mesheryctl connection view 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+
+# View in JSON format
+mesheryctl connection view 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c -o json
+```
+</CodeGroup>
+
+### Sample Output
+
+```yaml
+id: 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+name: aws-eks-prod
+type: eks
+status: connected
+metadata:
+  region: us-west-2
+  clusterName: production-cluster
+  version: 1.28
+credentials:
+  authType: aws-iam
+createdAt: 2024-03-02T14:22:00Z
+updatedAt: 2024-03-10T09:30:00Z
+```
+
+## create
+
+Create a new connection to Kubernetes or cloud provider.
+
+### Usage
+
+```bash
+mesheryctl connection create [flags]
+```
+
+### Flags
+
+<ParamField path="--type" type="string" required>
+  Connection type: `kubernetes`, `eks`, `aks`, `gke`, `minikube`, `kind`
+</ParamField>
+
+<ParamField path="--name" type="string">
+  Connection name (defaults to auto-generated)
+</ParamField>
+
+<ParamField path="--kubeconfig" type="string">
+  Path to kubeconfig file (for Kubernetes connections)
+</ParamField>
+
+<ParamField path="--context" type="string">
+  Kubeconfig context to use
+</ParamField>
+
+### Examples
+
+<CodeGroup>
+```bash Create Kubernetes Connection
+# Create from default kubeconfig
+mesheryctl connection create --type kubernetes
+
+# Create from specific kubeconfig
+mesheryctl connection create --type kubernetes --kubeconfig ~/.kube/config
+
+# Create with specific context
+mesheryctl connection create --type kubernetes --context prod-cluster
+```
+
+```bash Create Cloud Provider Connection
+# Create EKS connection
+mesheryctl connection create --type eks --name aws-prod
+
+# Create AKS connection
+mesheryctl connection create --type aks --name azure-dev
+
+# Create GKE connection
+mesheryctl connection create --type gke --name gcp-staging
+```
+
+```bash Create Local Cluster Connection
+# Create Minikube connection
+mesheryctl connection create --type minikube
+
+# Create Kind connection
+mesheryctl connection create --type kind
+```
+</CodeGroup>
+
+### Sample Output
+
+```
+Creating connection...
+Connection created successfully
+
+ID: 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+Name: aws-eks-prod
+Type: eks
+Status: connected
+```
+
+## delete
+
+Delete a connection.
+
+### Usage
+
+```bash
+mesheryctl connection delete [connection-id] [flags]
+```
+
+### Examples
+
+```bash
+# Delete by ID
+mesheryctl connection delete 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+
+# Delete with confirmation prompt
+mesheryctl connection delete 7e8b42f9-0e5c-4b7a-8f3d-9c2e1a6b5d4c
+```
+
+### Sample Output
+
+```
+Deleting connection aws-eks-prod...
+Connection deleted successfully
+```
+
+## Count Connections
+
+Display the total number of registered connections.
+
+### Usage
+
+```bash
+mesheryctl connection --count
+```
+
+### Example Output
+
+```
+Total connections: 4
+```
+
+## Connection Types
+
+Meshery supports various connection types:
+
+### Kubernetes Cluster Types
+
+- **kubernetes** - Generic Kubernetes cluster
+- **eks** - Amazon Elastic Kubernetes Service
+- **aks** - Azure Kubernetes Service
+- **gke** - Google Kubernetes Engine
+- **minikube** - Minikube local cluster
+- **kind** - Kubernetes IN Docker
+- **k3s** - Lightweight Kubernetes
+- **microk8s** - Canonical's Kubernetes
+
+### Connection Properties
+
+Each connection includes:
+
+- **ID** - Unique identifier
+- **Name** - Human-readable name
+- **Type** - Connection type (eks, aks, gke, etc.)
+- **Status** - Connection state (connected, disconnected, error)
+- **Metadata** - Type-specific information
+- **Credentials** - Authentication details
+- **Created/Updated** - Timestamps
+
+## Use Cases
+
+### Multi-Cluster Management
+
+```bash
+# Add multiple clusters
+mesheryctl connection create --type eks --name prod-cluster
+mesheryctl connection create --type eks --name staging-cluster
+mesheryctl connection create --type aks --name dev-cluster
+
+# List all clusters
+mesheryctl connection list
+```
+
+### Switch Between Clusters
+
+```bash
+# View available connections
+mesheryctl connection list
+
+# View specific connection details
+mesheryctl connection view <connection-id>
+```
+
+### Manage Cloud Provider Connections
+
+```bash
+# Create AWS EKS connection
+mesheryctl connection create --type eks --name aws-production
+
+# Create Azure AKS connection
+mesheryctl connection create --type aks --name azure-development
+
+# Create GCP GKE connection
+mesheryctl connection create --type gke --name gcp-staging
+```
+
+### Local Development
+
+```bash
+# Connect to local Minikube
+mesheryctl connection create --type minikube
+
+# Connect to local Kind cluster
+mesheryctl connection create --type kind
+```
+
+## Connection Workflow
+
+1. **Create Connection** - Register cluster or cloud provider
+2. **Verify Status** - Check connection is active
+3. **Deploy Resources** - Use connection in designs and operations
+4. **Monitor** - Track connection health
+5. **Delete** - Remove when no longer needed
+
+## Authentication
+
+Connections use different authentication methods:
+
+### Kubernetes
+- Kubeconfig file with certificate or token authentication
+- Service account tokens
+
+### Cloud Providers
+- AWS IAM roles and credentials
+- Azure managed identities
+- GCP service accounts
+
+## Troubleshooting
+
+### Connection Failed
+
+```bash
+# View connection details
+mesheryctl connection view <connection-id> -o yaml
+
+# Check Meshery logs
+mesheryctl system logs
+
+# Verify credentials
+# Ensure kubeconfig or cloud credentials are valid
+```
+
+### Connection Shows Disconnected
+
+```bash
+# List connections and check status
+mesheryctl connection list
+
+# Try recreating the connection
+mesheryctl connection delete <connection-id>
+mesheryctl connection create --type <type>
+```
+
+### Multiple Kubeconfig Contexts
+
+```bash
+# List contexts in kubeconfig
+kubectl config get-contexts
+
+# Create connection with specific context
+mesheryctl connection create --type kubernetes --context my-cluster
+```
+
+### Permission Errors
+
+```bash
+# Verify kubeconfig permissions
+ls -la ~/.kube/config
+
+# Ensure Meshery has read access
+chmod 600 ~/.kube/config
+```
+
+### Cloud Provider Credentials
+
+```bash
+# For AWS EKS - verify aws-cli configuration
+aws eks list-clusters
+
+# For Azure AKS - verify azure-cli login
+az account show
+
+# For GCP GKE - verify gcloud configuration
+gcloud container clusters list
+```
+
+## See Also
+
+- [Environment Command](/cli/environments) - Manage deployment environments
+- [System Command](/cli/system) - Manage Meshery deployment
+- [Design Command](/cli/design) - Deploy designs to connections

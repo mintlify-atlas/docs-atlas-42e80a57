@@ -1,0 +1,427 @@
+---
+title: Designs
+description: REST API endpoints for managing Meshery designs (patterns)
+---
+
+Designs (also called patterns) are declarative definitions of infrastructure and application configurations in Meshery. They allow you to define, version, and deploy cloud native infrastructure as code.
+
+## List Designs
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:9081/api/pattern?page=0&pagesize=25"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'http://localhost:9081/api/pattern?page=0&pagesize=25',
+  {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  }
+);
+const designs = await response.json();
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/pattern`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number for pagination
+</ParamField>
+
+<ParamField query="pagesize" type="integer" default="10">
+  Number of designs per page
+</ParamField>
+
+<ParamField query="search" type="string">
+  Search term for filtering designs by name
+</ParamField>
+
+<ParamField query="order" type="string">
+  Field to order by
+</ParamField>
+
+### Response
+
+<ResponseField name="page" type="integer">
+  Current page number
+</ResponseField>
+
+<ResponseField name="page_size" type="integer">
+  Number of items per page
+</ResponseField>
+
+<ResponseField name="total_count" type="integer">
+  Total number of designs
+</ResponseField>
+
+<ResponseField name="patterns" type="array">
+  Array of design objects
+</ResponseField>
+
+---
+
+## Get Design by ID
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/pattern/{id}
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/pattern/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Design ID (UUID)
+</ParamField>
+
+### Response
+
+Returns a single design object including the pattern file content.
+
+---
+
+## Create Design
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Application",
+    "pattern_data": {
+      "name": "My Application",
+      "design_file": {
+        "name": "my-app",
+        "version": "0.0.1",
+        "services": {}
+      }
+    },
+    "save": true
+  }' \
+  http://localhost:9081/api/pattern
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:9081/api/pattern', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'My Application',
+    pattern_data: {
+      name: 'My Application',
+      design_file: {
+        name: 'my-app',
+        version: '0.0.1',
+        services: {}
+      }
+    },
+    save: true
+  })
+});
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/pattern`
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Design name
+</ParamField>
+
+<ParamField body="pattern_data" type="object" required>
+  Design data including the pattern file
+</ParamField>
+
+<ParamField body="save" type="boolean" default="true">
+  Whether to save the design
+</ParamField>
+
+### Response
+
+**Status:** `201 Created`
+
+Returns the created design object.
+
+---
+
+## Update Design
+
+<CodeGroup>
+```bash cURL
+curl -X PUT \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Updated Design Name",
+    "pattern_data": {...}
+  }' \
+  http://localhost:9081/api/pattern/{sourcetype}
+```
+</CodeGroup>
+
+**Method:** `PUT`
+
+**Endpoint:** `/api/pattern/{sourcetype}`
+
+### Path Parameters
+
+<ParamField path="sourcetype" type="string" required>
+  Source type of the design (e.g., `yaml`, `json`, `helm`, `docker-compose`)
+</ParamField>
+
+---
+
+## Delete Design
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/pattern/{id}
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/pattern/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Design ID (UUID)
+</ParamField>
+
+---
+
+## Deploy Design
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "design-uuid",
+    "name": "My Design"
+  }' \
+  http://localhost:9081/api/pattern/deploy
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/pattern/deploy`
+
+### Request Body
+
+<ParamField body="id" type="string" required>
+  Design ID to deploy
+</ParamField>
+
+<ParamField body="name" type="string">
+  Design name
+</ParamField>
+
+---
+
+## Undeploy Design
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "design-uuid"
+  }' \
+  http://localhost:9081/api/pattern/deploy
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/pattern/deploy`
+
+---
+
+## Clone Design
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/pattern/clone/{id}
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/pattern/clone/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Design ID to clone
+</ParamField>
+
+---
+
+## Download Design
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/pattern/download/{id}
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/pattern/download/{id}`
+
+### Path Parameters
+
+<ParamField path="id" type="string" required>
+  Design ID to download
+</ParamField>
+
+### Response
+
+Returns the design file as a downloadable attachment.
+
+---
+
+## Import Design
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@design.yaml" \
+  http://localhost:9081/api/pattern/import
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/pattern/import`
+
+### Request Body
+
+Multipart form data with a file upload.
+
+<ParamField body="file" type="file" required>
+  Design file to import (YAML, JSON, Helm, Docker Compose, etc.)
+</ParamField>
+
+---
+
+## Get Design Types
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost:9081/api/pattern/types
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/pattern/types`
+
+### Response
+
+Returns available design types and source formats.
+
+---
+
+## Publish Design to Catalog
+
+<CodeGroup>
+```bash cURL
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "design-uuid",
+    "catalog_data": {
+      "content_class": "official",
+      "type": "deployment"
+    }
+  }' \
+  http://localhost:9081/api/pattern/catalog/publish
+```
+</CodeGroup>
+
+**Method:** `POST`
+
+**Endpoint:** `/api/pattern/catalog/publish`
+
+---
+
+## Unpublish Design from Catalog
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "design-uuid"
+  }' \
+  http://localhost:9081/api/pattern/catalog/unpublish
+```
+</CodeGroup>
+
+**Method:** `DELETE`
+
+**Endpoint:** `/api/pattern/catalog/unpublish`
+
+---
+
+## Get Catalog Designs
+
+<CodeGroup>
+```bash cURL
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://localhost:9081/api/pattern/catalog?page=0&pagesize=25"
+```
+</CodeGroup>
+
+**Method:** `GET`
+
+**Endpoint:** `/api/pattern/catalog`
+
+### Query Parameters
+
+<ParamField query="page" type="integer" default="0">
+  Page number
+</ParamField>
+
+<ParamField query="pagesize" type="integer" default="10">
+  Page size
+</ParamField>
+
+### Response
+
+Returns a paginated list of published catalog designs.

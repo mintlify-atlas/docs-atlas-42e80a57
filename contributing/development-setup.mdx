@@ -1,0 +1,528 @@
+---
+title: Development Setup
+description: Set up your local development environment for contributing to Meshery.
+---
+
+This guide will help you set up a local development environment for contributing to Meshery.
+
+## Prerequisites
+
+### Required Software
+
+<AccordionGroup>
+  <Accordion title="Go (for Server and CLI development)">
+    **Version:** Go 1.21 or later
+
+    **Installation:**
+    ```bash
+    # macOS
+    brew install go
+
+    # Linux (download from official site)
+    wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+    sudo tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+    ```
+
+    **Verify:**
+    ```bash
+    go version
+    ```
+  </Accordion>
+
+  <Accordion title="Node.js (for UI development)">
+    **Version:** Node.js 16, 17, 18, 19, or 20
+
+    **Installation:**
+    ```bash
+    # macOS
+    brew install node@20
+
+    # Linux (using nvm)
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+    nvm install 20
+    nvm use 20
+    ```
+
+    **Verify:**
+    ```bash
+    node --version
+    npm --version
+    ```
+  </Accordion>
+
+  <Accordion title="Docker (for containerized builds)">
+    **Installation:**
+    ```bash
+    # macOS
+    brew install --cask docker
+
+    # Linux (Ubuntu/Debian)
+    sudo apt-get update
+    sudo apt-get install docker.io
+    sudo systemctl start docker
+    sudo usermod -aG docker $USER
+    ```
+
+    **Verify:**
+    ```bash
+    docker --version
+    docker ps
+    ```
+  </Accordion>
+
+  <Accordion title="Git (version control)">
+    **Installation:**
+    ```bash
+    # macOS
+    brew install git
+
+    # Linux (Ubuntu/Debian)
+    sudo apt-get install git
+    ```
+
+    **Configure:**
+    ```bash
+    git config --global user.name "Your Name"
+    git config --global user.email "your.email@example.com"
+    ```
+
+    **Verify:**
+    ```bash
+    git --version
+    ```
+  </Accordion>
+
+  <Accordion title="Make (build automation)">
+    **Installation:**
+    ```bash
+    # macOS (included with Xcode Command Line Tools)
+    xcode-select --install
+
+    # Linux (Ubuntu/Debian)
+    sudo apt-get install build-essential
+    ```
+
+    **Verify:**
+    ```bash
+    make --version
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Optional Tools
+
+- **PostgreSQL** – For local database testing
+- **kubectl** – For Kubernetes integration testing
+- **kind** – For local Kubernetes cluster testing
+- **helm** – For Helm chart development and testing
+
+## Cloning the Repository
+
+### Fork and Clone
+
+1. **Fork the repository** on GitHub:
+   - Visit [github.com/meshery/meshery](https://github.com/meshery/meshery)
+   - Click the "Fork" button in the top right
+
+2. **Clone your fork:**
+
+```bash
+git clone https://github.com/YOUR_USERNAME/meshery.git
+cd meshery
+```
+
+3. **Add upstream remote:**
+
+```bash
+git remote add upstream https://github.com/meshery/meshery.git
+git fetch upstream
+```
+
+4. **Create a feature branch:**
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+## Server Development Setup
+
+### Install Go Dependencies
+
+```bash
+cd server/cmd
+go mod tidy
+cd ../..
+```
+
+### Install golangci-lint
+
+golangci-lint is used for linting Go code.
+
+```bash
+# macOS
+brew install golangci-lint
+
+# Linux
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+```
+
+### Run Meshery Server Locally
+
+**Basic server (port 9081):**
+
+```bash
+make server
+```
+
+The server will be available at `http://localhost:9081`.
+
+**Run with local provider:**
+
+```bash
+make server-local
+```
+
+**Run without Kubernetes components:**
+
+```bash
+make server-skip-compgen
+```
+
+**Run without operator deployment:**
+
+```bash
+make server-without-operator
+```
+
+### Build Server Binary
+
+```bash
+make build-server
+```
+
+This creates a `main` binary in the project root.
+
+**Run the binary:**
+
+```bash
+make server-binary
+```
+
+### Lint Go Code
+
+```bash
+make golangci
+```
+
+### Generate Error Codes
+
+Meshery uses MeshKit's error utility for error handling:
+
+```bash
+make error
+```
+
+## UI Development Setup
+
+### Install UI Dependencies
+
+```bash
+make ui-setup
+```
+
+This installs dependencies for both `ui/` and `provider-ui/` directories.
+
+### Run Meshery UI Locally
+
+**Development server (port 3000):**
+
+```bash
+make ui
+```
+
+The UI will be available at `http://localhost:3000`.
+
+<Note>
+  The UI expects the Meshery Server to be running at `http://localhost:9081`. Run `make server` in a separate terminal.
+</Note>
+
+### Run Provider UI
+
+```bash
+make ui-provider
+```
+
+### Lint UI Code
+
+```bash
+make ui-lint
+```
+
+### Build UI for Production
+
+**Build all UIs:**
+
+```bash
+make ui-build
+```
+
+**Build only Meshery UI:**
+
+```bash
+make ui-meshery-build
+```
+
+**Build only Provider UI:**
+
+```bash
+make ui-provider-build
+```
+
+## CLI Development Setup
+
+### Build mesheryctl
+
+```bash
+cd mesheryctl
+make
+```
+
+This creates the `mesheryctl` binary in `mesheryctl/` directory.
+
+### Run mesheryctl
+
+```bash
+./mesheryctl/mesheryctl version
+```
+
+### Run Unit Tests
+
+```bash
+cd mesheryctl
+go test --short ./...
+```
+
+### Run Integration Tests
+
+```bash
+cd mesheryctl
+go test -run Integration ./...
+```
+
+## Docker Development Setup
+
+### Build Meshery Container
+
+```bash
+make docker-build
+```
+
+This builds Meshery inside a multi-stage Docker container using BuildKit.
+
+### Build Playground Mode Container
+
+```bash
+make docker-playground-build
+```
+
+### Run Meshery in Docker
+
+**With production Remote Provider:**
+
+```bash
+make docker-cloud
+```
+
+**With local Remote Provider:**
+
+```bash
+make docker-local-cloud
+```
+
+## Documentation Development Setup
+
+### Install Jekyll Dependencies
+
+```bash
+cd docs
+bundle install
+```
+
+### Run Documentation Site Locally
+
+**With live reload (port 4000):**
+
+```bash
+make docs
+```
+
+The docs will be available at `http://localhost:4000`.
+
+**Without live reload:**
+
+```bash
+make docs-serve
+```
+
+### Build Documentation
+
+```bash
+make docs-build
+```
+
+### Run Docs in Docker
+
+```bash
+make docs-docker
+```
+
+## Environment Variables
+
+Meshery Server accepts several environment variables for configuration:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `PORT` | Server port | `9081` |
+| `DEBUG` | Enable debug logging | `false` |
+| `PROVIDER_BASE_URLS` | Remote provider URLs | Production URLs |
+| `ADAPTER_URLS` | Adapter service URLs | - |
+| `KEYS_PATH` | Path to encryption keys | - |
+| `SKIP_COMP_GEN` | Skip Kubernetes component generation | `false` |
+| `DISABLE_OPERATOR` | Disable operator deployment | `false` |
+| `PLAYGROUND` | Enable playground mode | `false` |
+
+**Example:**
+
+```bash
+export PORT=9081
+export DEBUG=true
+make server
+```
+
+## Verifying Your Setup
+
+### Quick Verification
+
+Run these commands to verify your setup:
+
+```bash
+# Check Go installation
+go version
+
+# Check Node.js installation
+node --version
+
+# Check Docker installation
+docker --version
+
+# Check Make installation
+make --version
+
+# Lint server code
+make golangci
+
+# Lint UI code
+make ui-lint
+```
+
+### Full Build Test
+
+Test that you can build all components:
+
+```bash
+# Build server
+make build-server
+
+# Build UI
+make ui-build
+
+# Build CLI
+cd mesheryctl && make && cd ..
+
+# Build Docker container
+make docker-build
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Go version mismatch">
+    If you see warnings about Go version:
+
+    ```bash
+    # Check installed version
+    go version
+
+    # Update Go to 1.21 or later
+    brew upgrade go  # macOS
+    ```
+  </Accordion>
+
+  <Accordion title="Node.js version issues">
+    The Makefile automatically detects Node.js version and uses appropriate build scripts. Supported versions: 16, 17, 18, 19, 20.
+
+    ```bash
+    # Check Node version
+    node --version
+
+    # Switch to Node 20 with nvm
+    nvm use 20
+    ```
+  </Accordion>
+
+  <Accordion title="Docker permission denied">
+    On Linux, you may need to add your user to the docker group:
+
+    ```bash
+    sudo usermod -aG docker $USER
+    newgrp docker
+    ```
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    If port 9081 or 3000 is already in use:
+
+    ```bash
+    # Check what's using the port
+    lsof -i :9081
+    lsof -i :3000
+
+    # Kill the process or use a different port
+    export PORT=9082
+    make server
+    ```
+  </Accordion>
+
+  <Accordion title="golangci-lint not found">
+    Install golangci-lint:
+
+    ```bash
+    # macOS
+    brew install golangci-lint
+
+    # Linux
+    curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin
+
+    # Verify
+    golangci-lint --version
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Code Style Guide" icon="code" href="/contributing/code-style">
+    Learn Meshery's coding conventions
+  </Card>
+  <Card title="Server Development" icon="server" href="/contributing/server">
+    Start contributing to the Go backend
+  </Card>
+  <Card title="UI Development" icon="palette" href="/contributing/ui">
+    Start contributing to the React frontend
+  </Card>
+  <Card title="Testing Guide" icon="vial" href="/contributing/testing">
+    Learn how to test your changes
+  </Card>
+</CardGroup>

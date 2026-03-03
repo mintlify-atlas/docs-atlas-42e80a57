@@ -1,0 +1,288 @@
+---
+title: Authentication
+description: Authenticate with Meshery APIs using providers and tokens
+---
+
+Meshery supports multiple authentication methods depending on your deployment mode and provider configuration.
+
+## Authentication Methods
+
+### 1. Provider-Based Authentication
+
+Meshery uses a provider-based authentication system. Providers handle user authentication, session management, and preferences.
+
+#### Local Provider (Default)
+
+The Local Provider stores data locally and does not require external authentication:
+
+```bash
+curl http://localhost:9081/api/system/version
+```
+
+For endpoints requiring authentication with the Local Provider, you need to include session cookies after logging in through the UI.
+
+#### Remote Provider (Meshery Cloud)
+
+Remote providers like Meshery Cloud require authentication tokens:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:9081/api/workspaces?orgID=YOUR_ORG_ID
+```
+
+### 2. Session-Based Authentication
+
+After logging in through the Meshery UI, a session cookie is set:
+
+```bash
+curl -b cookies.txt -c cookies.txt \
+  http://localhost:9081/api/user
+```
+
+### 3. Token Authentication
+
+For programmatic access, use bearer tokens:
+
+```bash
+curl -H "Authorization: Bearer YOUR_API_TOKEN" \
+  http://localhost:9081/api/integrations/connections
+```
+
+## Obtaining Authentication Tokens
+
+### Meshery Cloud Provider
+
+1. Log in to [Meshery Cloud](https://cloud.meshery.io)
+2. Navigate to **Account Settings** > **API Tokens**
+3. Generate a new token with appropriate scopes
+4. Copy the token (it will only be shown once)
+
+### Using mesheryctl
+
+The Meshery CLI can generate tokens:
+
+```bash
+mesheryctl system login
+mesheryctl system token
+```
+
+## Authentication Headers
+
+### Required Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication:
+  ```
+  Authorization: Bearer YOUR_TOKEN
+  ```
+</ParamField>
+
+<ParamField header="Content-Type" type="string">
+  Set to `application/json` for JSON payloads
+</ParamField>
+
+### Optional Headers
+
+<ParamField header="X-Request-ID" type="string">
+  Unique identifier for request tracing
+</ParamField>
+
+## Provider Selection
+
+Meshery supports multiple providers simultaneously. Specify your provider:
+
+### Get Available Providers
+
+```bash
+curl http://localhost:9081/api/providers
+```
+
+**Response:**
+
+```json
+{
+  "available_providers": [
+    {
+      "provider_name": "Meshery",
+      "provider_type": "remote",
+      "package_version": "v0.7.0",
+      "provider_url": "https://meshery.layer5.io"
+    },
+    {
+      "provider_name": "None",
+      "provider_type": "local",
+      "package_version": "v0.7.0"
+    }
+  ]
+}
+```
+
+### Set Active Provider
+
+Providers are selected during the login flow through the UI or mesheryctl.
+
+## Organization ID (orgID)
+
+Many endpoints require an `orgID` query parameter when using remote providers:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  "http://localhost:9081/api/workspaces?orgID=YOUR_ORG_ID&page=0&pagesize=10"
+```
+
+The `orgID` identifies which organization's resources you're accessing. You can find your organization ID in Meshery Cloud under **Settings** > **Organization**.
+
+## Authentication Examples
+
+### Example 1: List Workspaces (Local Provider)
+
+```bash
+# First, log in through the browser and export cookies
+curl -b cookies.txt -c cookies.txt \
+  http://localhost:9081/api/workspaces?page=0&pagesize=10
+```
+
+### Example 2: List Workspaces (Remote Provider)
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  "http://localhost:9081/api/workspaces?orgID=YOUR_ORG_ID&page=0&pagesize=10"
+```
+
+### Example 3: Create Connection
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-cluster",
+    "kind": "kubernetes",
+    "type": "platform",
+    "sub_type": "management"
+  }' \
+  http://localhost:9081/api/integrations/connections
+```
+
+### Example 4: GraphQL Query
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "query { getAvailableNamespaces(k8sClusterIDs: [\"cluster-id\"]) { namespace } }"
+  }' \
+  http://localhost:9081/api/system/graphql/query
+```
+
+## Error Codes
+
+### Authentication Errors
+
+<ResponseField name="401 Unauthorized" type="error">
+  Missing or invalid authentication credentials
+  ```json
+  {
+    "error": {
+      "code": "UNAUTHORIZED",
+      "description": "Authentication required"
+    }
+  }
+  ```
+</ResponseField>
+
+<ResponseField name="403 Forbidden" type="error">
+  Valid credentials but insufficient permissions
+  ```json
+  {
+    "error": {
+      "code": "FORBIDDEN",
+      "description": "Insufficient permissions for this resource"
+    }
+  }
+  ```
+</ResponseField>
+
+## Security Best Practices
+
+### Token Storage
+
+- **Never commit tokens to version control**
+- Store tokens in environment variables:
+  ```bash
+  export MESHERY_TOKEN="your-token-here"
+  curl -H "Authorization: Bearer $MESHERY_TOKEN" ...
+  ```
+- Use secrets management tools (e.g., HashiCorp Vault, AWS Secrets Manager)
+
+### Token Rotation
+
+- Rotate tokens regularly (recommended: every 90 days)
+- Revoke unused tokens immediately
+- Use separate tokens for different applications/environments
+
+### Network Security
+
+- Always use HTTPS in production
+- Implement TLS/SSL for API endpoints
+- Use mutual TLS (mTLS) for service-to-service communication
+
+## Testing Authentication
+
+Test your authentication setup:
+
+```bash
+# Test token validity
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+  http://localhost:9081/api/user
+```
+
+**Success Response:**
+
+```json
+{
+  "id": "user-uuid",
+  "user_id": "your-email@example.com",
+  "first_name": "John",
+  "last_name": "Doe",
+  "avatar_url": "https://..."
+}
+```
+
+## Troubleshooting
+
+### "failed to get token"
+
+Ensure you're including the Authorization header:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" ...
+```
+
+### "orgID is required"
+
+Remote providers require an organization ID:
+
+```bash
+curl "http://localhost:9081/api/workspaces?orgID=YOUR_ORG_ID"
+```
+
+### Session Expired
+
+Re-authenticate through the UI or mesheryctl:
+
+```bash
+mesheryctl system login
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Workspaces API" icon="folder" href="/api/rest/workspaces">
+    Manage workspaces
+  </Card>
+  <Card title="Connections API" icon="plug" href="/api/rest/connections">
+    Connect to clusters
+  </Card>
+</CardGroup>

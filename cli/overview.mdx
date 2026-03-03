@@ -1,0 +1,144 @@
+---
+title: mesheryctl CLI Overview
+description: Complete reference guide for the mesheryctl command-line tool
+---
+
+`mesheryctl` is the command-line interface for Meshery, enabling you to manage cloud native infrastructure, designs, performance tests, and lifecycle operations from your terminal.
+
+## Installation
+
+See [Installation Guide](/cli/installation) for platform-specific installation instructions.
+
+## Global Flags
+
+These flags are available for all `mesheryctl` commands:
+
+<ParamField path="--config" type="string" default="~/.meshery/config.yaml">
+  Path to the Meshery configuration file
+</ParamField>
+
+<ParamField path="--verbose" type="boolean" default="false">
+  Enable verbose output for debugging. Short form: `-v`
+</ParamField>
+
+<ParamField path="--help" type="boolean">
+  Display help information for any command. Short form: `-h`
+</ParamField>
+
+## Command Categories
+
+### Lifecycle Management
+
+- [**system**](/cli/system) - Deploy, configure, and manage Meshery server and components
+
+### Design Management
+
+- [**design**](/cli/design) - Create, apply, and manage cloud native infrastructure designs
+- [**model**](/cli/model) - Work with infrastructure models in the registry
+- [**component**](/cli/components) - Manage Meshery components
+- [**relationship**](/cli/relationships) - Define and manage component relationships
+
+### Performance Testing
+
+- [**perf**](/cli/perf) - Run performance tests and manage test profiles
+
+### Workspaces & Environments
+
+- [**workspace**](/cli/workspaces) - Manage team workspaces
+- [**environment**](/cli/environments) - Configure deployment environments
+- [**connection**](/cli/connections) - Manage Kubernetes and cloud connections
+
+### Registry Management
+
+- [**registry**](/cli/registry) - Manage the Meshery capability registry
+
+## Usage Examples
+
+<CodeGroup>
+```bash Basic Usage
+# Display help
+mesheryctl --help
+
+# Show version
+mesheryctl version
+
+# Enable verbose logging
+mesheryctl --verbose system status
+```
+
+```bash Quick Start
+# Start Meshery
+mesheryctl system start
+
+# Check status
+mesheryctl system status
+
+# Access dashboard
+mesheryctl system dashboard
+```
+
+```bash Working with Designs
+# Apply a design
+mesheryctl design apply -f mydesign.yaml
+
+# List all designs
+mesheryctl design list
+
+# View design details
+mesheryctl design view my-design
+```
+</CodeGroup>
+
+## Configuration File
+
+The default configuration file is located at `~/.meshery/config.yaml`. This file stores:
+
+- Current context and platform settings
+- Meshery server endpoint
+- Authentication tokens
+- Component versions and channels
+
+<Note>
+You can specify a different config file using the `--config` flag on any command.
+</Note>
+
+## Command Completion
+
+Generate shell completion scripts:
+
+```bash
+# Bash
+mesheryctl completion bash > /etc/bash_completion.d/mesheryctl
+
+# Zsh
+mesheryctl completion zsh > "${fpath[1]}/_mesheryctl"
+
+# Fish
+mesheryctl completion fish > ~/.config/fish/completions/mesheryctl.fish
+
+# PowerShell
+mesheryctl completion powershell > mesheryctl.ps1
+```
+
+## Getting Help
+
+Every command and subcommand supports the `--help` flag:
+
+```bash
+mesheryctl --help
+mesheryctl system --help
+mesheryctl system start --help
+```
+
+## Exit Codes
+
+- `0` - Success
+- `1` - General error
+- `2` - Misuse of command (invalid flags or arguments)
+
+## See Also
+
+- [mesheryctl Installation](/cli/installation)
+- [System Commands](/cli/system)
+- [Design Commands](/cli/design)
+- [Performance Commands](/cli/perf)
